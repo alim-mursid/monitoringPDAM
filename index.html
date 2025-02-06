@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Air PDAM</title>
+
+    <!-- Load Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getDatabase, ref, onValue, push } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAorkSRFuT1CwZtXMpJaEvmjW51a3LAse8",
+            authDomain: "monitoringairpdam-bd78d.firebaseapp.com",
+            databaseURL: "https://monitoringairpdam-bd78d-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "monitoringairpdam-bd78d",
+            storageBucket: "monitoringairpdam-bd78d.appspot.com",
+            messagingSenderId: "1050691156280",
+            appId: "1:1050691156280:web:8c5bc1da03e15dc69069cd"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+
+        let userUid = null;
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userUid = user.uid;
+                console.log("UID Pengguna: ", userUid);
+            } else {
+                console.log("Pengguna belum terautentikasi");
+            }
+        });
+
+        const monitoringRef = ref(db, '/monitoring');
+        onValue(monitoringRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                document.getElementById("debit").innerText = data.debit.toFixed(2);
+                document.getElementById("total").innerText = data.total.toFixed(2);
+
+                const hargaPerLiter = 5000 / 1000;
+                const estimasiHarga = data.total * hargaPerLiter;
+                document.getElementById("estimasi").innerText = "Rp " + estimasiHarga.toFixed(2);
+
+                if (userUid) {
+                    simpanRiwayat(userUid, data.debit, data.total, estimasiHarga);
+                }
+            }
+        });
+
+        function simpanRiwayat(uid, debit, total, biaya) {
+            const waktu = new Date().toLocaleString();
+            const riwayatRef = ref(db, `/users/${uid}/riwayat`);
+            push(riwayatRef, { waktu, debit, total, biaya })
+                .then(() => console.log("Riwayat berhasil disimpan"))
+                .catch((error) => console.error("Error menyimpan riwayat: ", error));
+        }
+    </script>
+
+    <!-- Load SheetJS (UMD) -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px; }
+        h2 { color: #007BFF; }
+        .data { font-size: 24px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background: #007BFF; color: white; }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Monitoring Air PDAM</h2>
+        <p>Debit Air Saat Ini: <span id="debit" class="data">0</span> L/m</p>
+        <p>Total Air Digunakan: <span id="total" class="data">0</span> L</p>
+        <p>Estimasi Biaya: <span id="estimasi" class="data">Rp 0</span></p>
+
+        <h3>Riwayat Penggunaan</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Waktu</th>
+                    <th>Debit (L/m)</th>
+                    <th>Total (L)</th>
+                    <th>Biaya (Rp)</th>
+                </tr>
+            </thead>
+            <tbody id="riwayat-body">
+                <!-- Data riwayat akan ditampilkan di sini -->
+            </tbody>
+        </table>
+
+        <button onclick="exportToExcel()">Ekspor ke Excel</button>
+    </div>
+
+    <script>
+        function exportToExcel() {
+            const debit = document.getElementById("debit").innerText;
+            const total = document.getElementById("total").innerText;
+            const estimasi = document.getElementById("estimasi").innerText;
+
+            // Ambil data riwayat dari tabel
+            const tableRows = document.querySelectorAll("#riwayat-body tr");
+            let riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
+            tableRows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                const rowData = [];
+                cells.forEach(cell => rowData.push(cell.innerText));
+                riwayatData.push(rowData);
+            });
+
+            // Buat worksheet & workbook
+            const wsData = [
+                ["Monitoring Air PDAM"],
+                [""],
+                ["Debit Air Saat Ini:", debit + " L/m"],
+                ["Total Air Digunakan:", total + " L"],
+                ["Estimasi Biaya:", estimasi],
+                [""],
+                ["Riwayat Penggunaan"]
+            ];
+            const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
+
+            // Simpan file Excel
+            XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
+        }
+    </script>
+
+</body>
+</html>
