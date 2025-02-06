@@ -43,7 +43,7 @@
                 document.getElementById("debit").innerText = data.debit.toFixed(2);
                 document.getElementById("total").innerText = data.total.toFixed(2);
 
-                const hargaPerLiter = 5000 / 1000;
+                const hargaPerLiter = 3000 / 1000;
                 const estimasiHarga = data.total * hargaPerLiter;
                 document.getElementById("estimasi").innerText = "Rp " + estimasiHarga.toFixed(2);
 
