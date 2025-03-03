@@ -7,10 +7,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Load SheetJS (UMD) -->
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
-    <!-- Load Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
         import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
@@ -30,16 +28,14 @@
         const db = getDatabase(app);
         const auth = getAuth(app);
         
-        // Data historis untuk grafik
         const debitHistory = [];
         const biayaHistory = [];
         const timeLabels = [];
-        const maxDataPoints = 20; // Jumlah maksimum titik data pada grafik
+        const maxDataPoints = 20; 
         
-        // Gunakan UID yang tetap untuk konsistensi
+       
         const fixedUserUid = "kw4TetVsOLVLNSJPNFfaKmVTv173";
         
-        // Ambil data pengaturan batas debit dari control untuk memastikan nilai selalu tersedia
         const controlBatasRef = ref(db, '/control/batasDebit');
         onValue(controlBatasRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -47,7 +43,7 @@
             }
         });
 
-        // Ambil data batas debit dari pengaturan pengguna jika ada
+        
         const batasRef = ref(db, `/users/${fixedUserUid}/settings/batasDebit`);
         onValue(batasRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -55,7 +51,7 @@
             }
         });
         
-        // Ambil riwayat penggunaan
+       
         const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
         onValue(riwayatRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -63,18 +59,18 @@
                 const riwayatBody = document.getElementById("riwayat-body");
                 riwayatBody.innerHTML = "";
                 
-                // Konversi dan urutkan data riwayat
+                
                 const riwayatArray = Object.keys(riwayatData).map(key => {
                     return {
                         key: key,
                         ...riwayatData[key]
                     };
                 }).sort((a, b) => {
-                    // Urutkan berdasarkan waktu (terbaru terlebih dahulu)
+                    
                     return new Date(b.waktu) - new Date(a.waktu);
                 });
                 
-                // Tampilkan maksimal 50 entri terbaru
+               
                 riwayatArray.slice(0, 50).forEach(item => {
                     const row = document.createElement("tr");
                     row.innerHTML = `
@@ -86,28 +82,28 @@
                     riwayatBody.appendChild(row);
                 });
                 
-                // Populate historical data for long-term chart if needed
+                
                 if (window.historicalChart && riwayatArray.length > 0) {
-                    // Get the last 24 entries (or less if fewer exist)
+                    
                     const historicalData = riwayatArray.slice(0, 24).reverse();
                     
-                    // Update historical chart
+                   
                     window.historicalChart.data.labels = historicalData.map(item => {
-                        // Format waktu to be more readable (hh:mm)
+                        
                         const date = new Date(item.waktu);
                         return date.getHours().toString().padStart(2, '0') + ':' + 
                                date.getMinutes().toString().padStart(2, '0');
                     });
                     
                     window.historicalChart.data.datasets[0].data = historicalData.map(item => item.debit);
-                    window.historicalChart.data.datasets[1].data = historicalData.map(item => item.biaya / 100); // Scale down for better visualization
+                    window.historicalChart.data.datasets[1].data = historicalData.map(item => item.biaya / 100); 
                     
                     window.historicalChart.update();
                 }
             }
         });
 
-        // Ambil data monitoring
+       
         const monitoringRef = ref(db, '/monitoring');
         onValue(monitoringRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -119,31 +115,28 @@
                 const estimasiHarga = data.total * hargaPerLiter;
                 document.getElementById("estimasi").innerText = "Rp " + estimasiHarga.toFixed(2);
                 
-                // Format waktu untuk label dalam grafik
                 const now = new Date();
                 const timeLabel = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
                 
-                // Tambahkan data ke array historis
                 timeLabels.push(timeLabel);
                 debitHistory.push(data.debit);
                 biayaHistory.push(estimasiHarga);
                 
-                // Batasi jumlah data yang disimpan
+               
                 if (timeLabels.length > maxDataPoints) {
                     timeLabels.shift();
                     debitHistory.shift();
                     biayaHistory.shift();
                 }
                 
-                // Update grafik realtime
                 if (window.realtimeChart) {
                     window.realtimeChart.data.labels = timeLabels;
                     window.realtimeChart.data.datasets[0].data = debitHistory;
-                    window.realtimeChart.data.datasets[1].data = biayaHistory.map(value => value / 100); // Scale down for better visualization
+                    window.realtimeChart.data.datasets[1].data = biayaHistory.map(value => value / 100); 
                     window.realtimeChart.update();
                 }
                 
-                // Periksa apakah debit melebihi batas
+               
                 const batasDebit = parseFloat(document.getElementById("batasDebit").value || "0");
                 if (batasDebit > 0 && data.debit > batasDebit) {
                     document.getElementById("statusAlert").innerText = "PERINGATAN: Debit melebihi batas!";
@@ -153,7 +146,7 @@
                     document.getElementById("statusAlert").classList.add("text-red-600");
                     document.getElementById("statusAlert").classList.add("bg-red-100");
                     
-                    // Kirim status alert ke Firebase untuk ESP32
+                   
                     set(ref(db, '/control/buzzer'), true);
                 } else {
                     document.getElementById("statusAlert").innerText = "Status: Normal";
@@ -163,11 +156,11 @@
                     document.getElementById("statusAlert").classList.add("text-green-600");
                     document.getElementById("statusAlert").classList.add("bg-green-100");
                     
-                    // Matikan status alert
+                   
                     set(ref(db, '/control/buzzer'), false);
                 }
 
-                // Simpan riwayat dengan UID yang tetap
+               
                 simpanRiwayat(fixedUserUid, data.debit, data.total, estimasiHarga);
             }
         });
@@ -180,7 +173,7 @@
                 .catch((error) => console.error("Error menyimpan riwayat: ", error));
         }
         
-        // Ekspose fungsi ke window object
+        
         window.appFunctions = {
             simpanBatasDebit: function() {
                 const batasInput = document.getElementById("batasDebit");
@@ -191,12 +184,11 @@
                     return;
                 }
                 
-                // Simpan ke control path untuk ESP32
+               
                 set(ref(db, '/control/batasDebit'), batasDebit)
                     .then(() => {
                         console.log("Batas debit berhasil disimpan di control");
                         
-                        // Simpan juga ke user settings dengan UID tetap
                         return set(ref(db, `/users/${fixedUserUid}/settings/batasDebit`), batasDebit);
                     })
                     .then(() => {
@@ -214,7 +206,7 @@
                 const estimasi = document.getElementById("estimasi").innerText;
                 const batasDebit = document.getElementById("batasDebit").value;
 
-                // Ambil data riwayat dari tabel
+               
                 const tableRows = document.querySelectorAll("#riwayat-body tr");
                 let riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
                 tableRows.forEach(row => {
@@ -224,7 +216,7 @@
                     riwayatData.push(rowData);
                 });
 
-                // Buat worksheet & workbook
+                
                 const wsData = [
                     ["Monitoring Air PDAM"],
                     ["Laporan Dibuat Pada: " + new Date().toLocaleString()],
@@ -240,20 +232,18 @@
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
 
-                // Simpan file Excel
                 XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
             },
             
             switchTab: function(tabId) {
-                // Hide all tabs
                 document.querySelectorAll('.chart-tab').forEach(tab => {
                     tab.classList.add('hidden');
                 });
                 
-                // Show selected tab
+                
                 document.getElementById(tabId).classList.remove('hidden');
                 
-                // Update active tab buttons
+                
                 document.querySelectorAll('.tab-button').forEach(button => {
                     button.classList.remove('bg-blue-500', 'text-white');
                     button.classList.add('bg-gray-200', 'text-gray-700');
@@ -326,7 +316,6 @@
                         </tr>
                     </thead>
                     <tbody id="riwayat-body">
-                        <!-- Data riwayat akan ditampilkan di sini -->
                     </tbody>
                 </table>
             </div>
@@ -335,7 +324,7 @@
     </div>
 
     <script>
-        // Inisialisasi grafik realtime
+        
         const realtimeCtx = document.getElementById('realtimeChart').getContext('2d');
         window.realtimeChart = new Chart(realtimeCtx, {
             type: 'line',
@@ -420,7 +409,6 @@
             }
         });
         
-        // Inisialisasi grafik historis
         const historicalCtx = document.getElementById('historicalChart').getContext('2d');
         window.historicalChart = new Chart(historicalCtx, {
             type: 'bar',
@@ -491,7 +479,6 @@
                                     label += ': ';
                                 }
                                 if (context.datasetIndex === 1) {
-                                    // For biaya dataset, multiply by 100 to get actual value
                                     return label + 'Rp ' + (context.parsed.y * 100).toFixed(2);
                                 }
                                 return label + context.parsed.y.toFixed(2) + ' L/m';
