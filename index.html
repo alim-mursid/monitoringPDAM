@@ -4,87 +4,681 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring Air PDAM</title>
-    <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Monitoring Air PDAM</h1>
-        </header>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/date-fns/2.30.0/date-fns.min.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getDatabase, ref, onValue, push, set, remove, get, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAorkSRFuT1CwZtXMpJaEvmjW51a3LAse8",
+            authDomain: "monitoringairpdam-bd78d.firebaseapp.com",
+            databaseURL: "https://monitoringairpdam-bd78d-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "monitoringairpdam-bd78d",
+            storageBucket: "monitoringairpdam-bd78d.appspot.com",
+            messagingSenderId: "1050691156280",
+            appId: "1:1050691156280:web:8c5bc1da03e15dc69069cd"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
         
-        <div class="dashboard">
-            <div class="card total">
-                <p class="card-title">Total Air Digunakan:</p>
-                <p id="total" class="card-value">0 L</p>
+        let debitHistory = [];
+        let biayaHistory = [];
+        let timeLabels = [];
+        const maxDataPoints = 20; 
+        let allHistoricalData = [];
+        let currentDateRange = 'day';
+        
+        const fixedUserUid = "kw4TetVsOLVLNSJPNFfaKmVTv173";
+        
+        const controlBatasRef = ref(db, '/control/batasDebit');
+        onValue(controlBatasRef, (snapshot) => {
+            if (snapshot.exists()) {
+                document.getElementById("batasDebit").value = snapshot.val();
+            }
+        });
+
+        const batasRef = ref(db, `/users/${fixedUserUid}/settings/batasDebit`);
+        onValue(batasRef, (snapshot) => {
+            if (snapshot.exists()) {
+                document.getElementById("batasDebit").value = snapshot.val();
+            }
+        });
+        
+        const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
+        onValue(riwayatRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const riwayatData = snapshot.val();
+                const riwayatBody = document.getElementById("riwayat-body");
+                riwayatBody.innerHTML = "";
+                
+                allHistoricalData = Object.keys(riwayatData).map(key => {
+                    return {
+                        key: key,
+                        ...riwayatData[key]
+                    };
+                }).sort((a, b) => {
+                    return new Date(b.waktu) - new Date(a.waktu);
+                });
+                
+                populateHistoryTable(allHistoricalData.slice(0, 50));
+
+                updateHistoricalChart();
+            } else {
+                allHistoricalData = [];
+                document.getElementById("riwayat-body").innerHTML = "<tr><td colspan='5' class='border px-4 py-2 text-center'>Tidak ada data riwayat</td></tr>";
+                
+                if (window.historicalChart) {
+                    window.historicalChart.data.labels = [];
+                    window.historicalChart.data.datasets.forEach(dataset => {
+                        dataset.data = [];
+                    });
+                    window.historicalChart.update();
+                }
+            }
+        });
+
+        function populateHistoryTable(data) {
+            const riwayatBody = document.getElementById("riwayat-body");
+            riwayatBody.innerHTML = "";
+            
+            if (data.length === 0) {
+                riwayatBody.innerHTML = "<tr><td colspan='5' class='border px-4 py-2 text-center'>Tidak ada data riwayat</td></tr>";
+                return;
+            }
+            
+            data.forEach(item => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td class="border px-4 py-2">${item.waktu}</td>
+                    <td class="border px-4 py-2">${item.debit.toFixed(2)}</td>
+                    <td class="border px-4 py-2">${item.total.toFixed(2)}</td>
+                    <td class="border px-4 py-2">Rp ${item.biaya.toFixed(2)}</td>
+                    <td class="border px-4 py-2">
+                        <button class="delete-btn bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs" 
+                                data-key="${item.key}">Hapus</button>
+                    </td>
+                `;
+                riwayatBody.appendChild(row);
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const key = this.getAttribute('data-key');
+                    deleteHistoryItem(key);
+                });
+            });
+        }
+
+        function deleteHistoryItem(key) {
+            if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
+                const itemRef = ref(db, `/users/${fixedUserUid}/riwayat/${key}`);
+                remove(itemRef)
+                    .then(() => {
+                        console.log("Data berhasil dihapus");
+                    })
+                    .catch((error) => {
+                        console.error("Error menghapus data: ", error);
+                        alert("Gagal menghapus data: " + error.message);
+                    });
+            }
+        }
+
+        function updateHistoricalChart() {
+            if (!window.historicalChart || allHistoricalData.length === 0) return;
+            
+            let filteredData;
+            const now = new Date();
+            
+            switch(currentDateRange) {
+                case 'day':
+                    filteredData = allHistoricalData.filter(item => {
+                        const itemDate = new Date(item.waktu);
+                        return (now - itemDate) <= 24 * 60 * 60 * 1000;
+                    }).slice(-24);
+                    break;
+                    
+                case 'week':
+                    filteredData = allHistoricalData.filter(item => {
+                        const itemDate = new Date(item.waktu);
+                        return (now - itemDate) <= 7 * 24 * 60 * 60 * 1000;
+                    });
+                    
+                    const weeklyData = groupDataByDay(filteredData);
+                    filteredData = Object.keys(weeklyData).map(date => {
+                        const records = weeklyData[date];
+                        return {
+                            date: date,
+                            debit: records.reduce((sum, r) => sum + r.debit, 0) / records.length,
+                            biaya: records.reduce((sum, r) => sum + r.biaya, 0)
+                        };
+                    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+                    
+                    window.historicalChart.data.labels = filteredData.map(item => item.date);
+                    window.historicalChart.data.datasets[0].data = filteredData.map(item => item.debit);
+                    window.historicalChart.data.datasets[1].data = filteredData.map(item => item.biaya / 100);
+                    window.historicalChart.options.plugins.title.text = 'Penggunaan Air Mingguan';
+                    window.historicalChart.update();
+                    return;
+                    
+                case 'month':
+                    filteredData = allHistoricalData.filter(item => {
+                        const itemDate = new Date(item.waktu);
+                        return (now - itemDate) <= 30 * 24 * 60 * 60 * 1000;
+                    });
+                    
+                    const monthlyData = groupDataByDay(filteredData);
+                    filteredData = Object.keys(monthlyData).map(date => {
+                        const records = monthlyData[date];
+                        return {
+                            date: date,
+                            debit: records.reduce((sum, r) => sum + r.debit, 0) / records.length,
+                            biaya: records.reduce((sum, r) => sum + r.biaya, 0)
+                        };
+                    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+                    
+                    window.historicalChart.data.labels = filteredData.map(item => item.date);
+                    window.historicalChart.data.datasets[0].data = filteredData.map(item => item.debit);
+                    window.historicalChart.data.datasets[1].data = filteredData.map(item => item.biaya / 100);
+                    window.historicalChart.options.plugins.title.text = 'Penggunaan Air Bulanan';
+                    window.historicalChart.update();
+                    return;
+                    
+                default:
+                    filteredData = allHistoricalData.slice(-24);
+            }
+            
+            filteredData = filteredData.reverse();
+            
+            window.historicalChart.data.labels = filteredData.map(item => {
+                const date = new Date(item.waktu);
+                return date.getHours().toString().padStart(2, '0') + ':' + 
+                       date.getMinutes().toString().padStart(2, '0');
+            });
+            
+            window.historicalChart.data.datasets[0].data = filteredData.map(item => item.debit);
+            window.historicalChart.data.datasets[1].data = filteredData.map(item => item.biaya / 100);
+            window.historicalChart.options.plugins.title.text = 'Penggunaan Air Harian';
+            window.historicalChart.update();
+        }
+
+        function groupDataByDay(data) {
+            const result = {};
+            
+            data.forEach(item => {
+                const date = new Date(item.waktu);
+                const dateKey = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+                
+                if (!result[dateKey]) {
+                    result[dateKey] = [];
+                }
+                
+                result[dateKey].push(item);
+            });
+            
+            return result;
+        }
+
+        const monitoringRef = ref(db, '/monitoring');
+        onValue(monitoringRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                document.getElementById("total").innerText = data.total.toFixed(2) + " L";
+
+                const hargaPerLiter = 3000 / 1000;
+                const estimasiHarga = data.total * hargaPerLiter;
+                document.getElementById("estimasi").innerText = "Rp " + estimasiHarga.toFixed(2);
+                
+                const now = new Date();
+                const timeLabel = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+                
+                timeLabels.push(timeLabel);
+                debitHistory.push(data.debit);
+                biayaHistory.push(estimasiHarga);
+                
+                if (timeLabels.length > maxDataPoints) {
+                    timeLabels.shift();
+                    debitHistory.shift();
+                    biayaHistory.shift();
+                }
+                
+                if (window.realtimeChart) {
+                    window.realtimeChart.data.labels = timeLabels;
+                    window.realtimeChart.data.datasets[0].data = debitHistory;
+                    window.realtimeChart.data.datasets[1].data = biayaHistory.map(value => value / 100);
+                    window.realtimeChart.update();
+                }
+                
+                const batasDebit = parseFloat(document.getElementById("batasDebit").value || "0");
+                if (batasDebit > 0 && data.debit > batasDebit) {
+                    document.getElementById("statusAlert").innerText = "PERINGATAN: Debit melebihi batas!";
+                    document.getElementById("statusAlert").classList.remove("hidden");
+                    document.getElementById("statusAlert").classList.remove("text-green-600");
+                    document.getElementById("statusAlert").classList.remove("bg-green-100");
+                    document.getElementById("statusAlert").classList.add("text-red-600");
+                    document.getElementById("statusAlert").classList.add("bg-red-100");
+                    
+                    set(ref(db, '/control/buzzer'), true);
+                } else {
+                    document.getElementById("statusAlert").innerText = "Status: Normal";
+                    document.getElementById("statusAlert").classList.remove("hidden");
+                    document.getElementById("statusAlert").classList.remove("text-red-600");
+                    document.getElementById("statusAlert").classList.remove("bg-red-100");
+                    document.getElementById("statusAlert").classList.add("text-green-600");
+                    document.getElementById("statusAlert").classList.add("bg-green-100");
+                    
+                    set(ref(db, '/control/buzzer'), false);
+                }
+
+                simpanRiwayat(fixedUserUid, data.debit, data.total, estimasiHarga);
+            }
+        });
+
+        function simpanRiwayat(uid, debit, total, biaya) {
+            const now = new Date();
+            if (now.getMinutes() % 5 === 0 && now.getSeconds() < 10) {
+                const waktu = now.toLocaleString();
+                const riwayatRef = ref(db, `/users/${uid}/riwayat`);
+                push(riwayatRef, { waktu, debit, total, biaya })
+                    .then(() => console.log("Riwayat berhasil disimpan"))
+                    .catch((error) => console.error("Error menyimpan riwayat: ", error));
+            }
+        }
+        
+        window.appFunctions = {
+            simpanBatasDebit: function() {
+                const batasInput = document.getElementById("batasDebit");
+                const batasDebit = parseFloat(batasInput.value);
+                
+                if (isNaN(batasDebit) || batasDebit < 0) {
+                    alert("Mohon masukkan nilai batas debit yang valid (angka positif)");
+                    return;
+                }
+                
+                set(ref(db, '/control/batasDebit'), batasDebit)
+                    .then(() => {
+                        console.log("Batas debit berhasil disimpan di control");
+                        
+                        return set(ref(db, `/users/${fixedUserUid}/settings/batasDebit`), batasDebit);
+                    })
+                    .then(() => {
+                        alert("Batas debit berhasil disimpan");
+                    })
+                    .catch((error) => {
+                        console.error("Error menyimpan batas debit: ", error);
+                        alert("Gagal menyimpan batas debit: " + error.message);
+                    });
+            },
+            
+            exportToExcel: function() {
+                const total = document.getElementById("total").innerText;
+                const estimasi = document.getElementById("estimasi").innerText;
+                const batasDebit = document.getElementById("batasDebit").value;
+
+                const tableRows = document.querySelectorAll("#riwayat-body tr");
+                let riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
+                tableRows.forEach(row => {
+                    const cells = row.querySelectorAll("td");
+                    if (cells.length >= 4) { 
+                        const rowData = [];
+                        for (let i = 0; i < 4; i++) { 
+                            rowData.push(cells[i].innerText);
+                        }
+                        riwayatData.push(rowData);
+                    }
+                });
+
+                const wsData = [
+                    ["Monitoring Air PDAM"],
+                    ["Laporan Dibuat Pada: " + new Date().toLocaleString()],
+                    [""],
+                    ["Total Air Digunakan:", total],
+                    ["Estimasi Biaya:", estimasi],
+                    ["Batas Debit:", batasDebit + " L/m"],
+                    [""],
+                    ["Riwayat Penggunaan"]
+                ];
+                const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
+
+                XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
+            },
+            
+            switchTab: function(tabId) {
+                document.querySelectorAll('.chart-tab').forEach(tab => {
+                    tab.classList.add('hidden');
+                });
+                
+                document.getElementById(tabId).classList.remove('hidden');
+                
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.classList.remove('bg-blue-500', 'text-white');
+                    button.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                
+                document.getElementById(tabId + '-btn').classList.remove('bg-gray-200', 'text-gray-700');
+                document.getElementById(tabId + '-btn').classList.add('bg-blue-500', 'text-white');
+            },
+            
+            hapusSemuaRiwayat: function() {
+                if (confirm('PERINGATAN: Apakah Anda yakin ingin menghapus SEMUA data riwayat? Tindakan ini tidak dapat dibatalkan!')) {
+                    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
+                    remove(riwayatRef)
+                        .then(() => {
+                            console.log("Semua data riwayat berhasil dihapus");
+                            alert("Semua data riwayat berhasil dihapus");
+                        })
+                        .catch((error) => {
+                            console.error("Error menghapus data riwayat: ", error);
+                            alert("Gagal menghapus semua data: " + error.message);
+                        });
+                }
+            },
+            
+            changeDateRange: function(range) {
+                currentDateRange = range;
+                updateHistoricalChart();
+                
+                document.querySelectorAll('.date-range-btn').forEach(btn => {
+                    btn.classList.remove('bg-blue-500', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                
+                document.getElementById(range + '-btn').classList.remove('bg-gray-200', 'text-gray-700');
+                document.getElementById(range + '-btn').classList.add('bg-blue-500', 'text-white');
+            },
+            
+            filterTable: function() {
+                const searchInput = document.getElementById("search-input").value.toLowerCase();
+                
+                if (searchInput.trim() === "") {
+                    populateHistoryTable(allHistoricalData.slice(0, 50));
+                    return;
+                }
+                
+                const filteredData = allHistoricalData.filter(item => {
+                    const waktu = item.waktu.toLowerCase();
+                    const debit = item.debit.toString();
+                    const total = item.total.toString();
+                    const biaya = item.biaya.toString();
+                    
+                    return waktu.includes(searchInput) || 
+                           debit.includes(searchInput) || 
+                           total.includes(searchInput) || 
+                           biaya.includes(searchInput);
+                });
+                
+                populateHistoryTable(filteredData);
+            }
+        };
+    </script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-3 md:p-6 max-w-4xl bg-white shadow-lg rounded-xl">
+        <h2 class="text-xl md:text-2xl font-bold text-blue-600 text-center mb-4">Monitoring Air PDAM</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 bg-green-100 rounded-lg shadow">
+                <p class="text-lg font-semibold">Total Air Digunakan:</p>
+                <p id="total" class="text-2xl md:text-3xl font-bold text-green-600">0 L</p>
             </div>
-            <div class="card biaya">
-                <p class="card-title">Estimasi Biaya:</p>
-                <p id="estimasi" class="card-value">Rp 0</p>
+            <div class="p-4 bg-yellow-100 rounded-lg shadow">
+                <p class="text-lg font-semibold">Estimasi Biaya:</p>
+                <p id="estimasi" class="text-xl md:text-2xl font-bold text-yellow-600">Rp 0</p>
             </div>
         </div>
         
-        <div id="statusAlert" class="status-alert hidden">Status: Normal</div>
+        <div id="statusAlert" class="mt-4 text-center font-bold p-2 rounded-lg hidden">Status: Normal</div>
         
-        <section class="chart-section">
-            <div class="section-header">
-                <h2>Data Penggunaan Air (30 Hari Terakhir)</h2>
-                <div class="chart-controls">
-                    <select id="chartView" class="chart-select">
-                        <option value="daily">Tampilan Harian</option>
-                        <option value="weekly">Tampilan Mingguan</option>
-                        <option value="monthly">Tampilan Bulanan</option>
-                    </select>
+        <div class="mt-4 flex flex-wrap border-b">
+            <button id="realtime-chart-tab-btn" class="tab-button bg-blue-500 text-white py-1 px-3 font-semibold rounded-t-lg text-sm md:text-base" onclick="appFunctions.switchTab('realtime-chart-tab')">Grafik Realtime</button>
+            <button id="historical-chart-tab-btn" class="tab-button bg-gray-200 text-gray-700 py-1 px-3 font-semibold rounded-t-lg ml-2 text-sm md:text-base" onclick="appFunctions.switchTab('historical-chart-tab')">Grafik Historis</button>
+        </div>
+        
+        <div id="realtime-chart-tab" class="chart-tab p-3 md:p-4 border-l border-r border-b rounded-b-lg">
+            <h3 class="text-lg font-semibold mb-2">Monitoring Realtime</h3>
+            <div class="h-64 md:h-80">
+                <canvas id="realtimeChart"></canvas>
+            </div>
+        </div>
+        
+        <div id="historical-chart-tab" class="chart-tab p-3 md:p-4 border-l border-r border-b rounded-b-lg hidden">
+            <div class="flex flex-wrap mb-3 mt-1 items-center justify-between">
+                <h3 class="text-lg font-semibold">Penggunaan Air</h3>
+                <div class="flex flex-wrap mt-2 md:mt-0">
+                    <button id="day-btn" class="date-range-btn bg-blue-500 text-white py-1 px-2 rounded text-sm" onclick="appFunctions.changeDateRange('day')">Harian</button>
+                    <button id="week-btn" class="date-range-btn bg-gray-200 text-gray-700 py-1 px-2 rounded ml-2 text-sm" onclick="appFunctions.changeDateRange('week')">Mingguan</button>
+                    <button id="month-btn" class="date-range-btn bg-gray-200 text-gray-700 py-1 px-2 rounded ml-2 text-sm" onclick="appFunctions.changeDateRange('month')">Bulanan</button>
                 </div>
             </div>
-            <div class="chart-container">
+            <div class="h-64 md:h-80">
                 <canvas id="historicalChart"></canvas>
             </div>
-        </section>
+        </div>
         
-        <section class="settings-section">
-            <h2>Pengaturan Batas Debit</h2>
-            <div class="settings-controls">
-                <label for="batasDebit">Batas Debit (L/m): </label>
-                <input type="number" id="batasDebit" min="0" step="0.1" value="10">
-                <button id="saveBatas" class="btn primary">Simpan Batas</button>
+        <div class="mt-4 p-3 md:p-4 bg-gray-100 rounded-lg shadow">
+            <h3 class="text-lg md:text-xl font-bold text-gray-700 mb-2">Pengaturan Batas Debit</h3>
+            <div class="flex flex-wrap items-center">
+                <label for="batasDebit" class="mr-2">Batas Debit (L/m): </label>
+                <input type="number" id="batasDebit" min="0" step="0.1" value="10" class="border rounded p-1 w-20 md:w-24">
+                <button onclick="appFunctions.simpanBatasDebit()" class="ml-2 bg-blue-500 hover:bg-blue-600 text-white px-2 md:px-4 py-1 rounded text-sm">Simpan Batas</button>
             </div>
-            <p class="note">* Buzzer akan berbunyi jika debit melebihi batas</p>
-        </section>
+            <p class="text-xs md:text-sm text-gray-600 mt-2">* Buzzer akan berbunyi jika debit melebihi batas</p>
+        </div>
 
-        <section class="history-section">
-            <div class="section-header">
-                <h2>Riwayat Penggunaan</h2>
-                <div class="history-controls">
-                    <button id="exportExcel" class="btn success">Ekspor ke Excel</button>
-                    <button id="clearHistory" class="btn danger">Hapus Semua Riwayat</button>
+        <div class="mt-4">
+            <div class="flex flex-wrap items-center justify-between mb-2">
+                <h3 class="text-lg md:text-xl font-bold text-gray-700">Riwayat Penggunaan</h3>
+                <div class="flex flex-wrap items-center mt-2 md:mt-0">
+                    <input type="text" id="search-input" placeholder="Cari..." class="border rounded p-1 text-sm mr-2">
+                    <button onclick="appFunctions.filterTable()" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm">Cari</button>
                 </div>
             </div>
-            <div class="table-container">
-                <table>
+            <div class="overflow-x-auto rounded-lg shadow">
+                <table class="min-w-full bg-white">
                     <thead>
                         <tr>
-                            <th>Waktu</th>
-                            <th>Total (L)</th>
-                            <th>Biaya (Rp)</th>
+                            <th class="bg-blue-500 text-white border px-2 py-1 md:px-4 md:py-2 text-xs md:text-sm">Waktu</th>
+                            <th class="bg-blue-500 text-white border px-2 py-1 md:px-4 md:py-2 text-xs md:text-sm">Debit (L/m)</th>
+                            <th class="bg-blue-500 text-white border px-2 py-1 md:px-4 md:py-2 text-xs md:text-sm">Total (L)</th>
+                            <th class="bg-blue-500 text-white border px-2 py-1 md:px-4 md:py-2 text-xs md:text-sm">Biaya (Rp)</th>
+                            <th class="bg-blue-500 text-white border px-2 py-1 md:px-4 md:py-2 text-xs md:text-sm">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="riwayat-body">
+                        
                     </tbody>
                 </table>
             </div>
-        </section>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <button onclick="appFunctions.exportToExcel()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">Ekspor ke Excel</button>
+                <button onclick="appFunctions.hapusSemuaRiwayat()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">Hapus Semua Riwayat</button>
+            </div>
+        </div>
     </div>
 
-    <footer>
-        <p>&copy; 2025 Alim mursid - Monitoring Air PDAM. All rights reserved.</p>
-    </footer>
+    <script>
+        
+        const realtimeCtx = document.getElementById('realtimeChart').getContext('2d');
+        window.realtimeChart = new Chart(realtimeCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Debit Air (L/m)',
+                        data: [],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderWidth: 2,
+                        yAxisID: 'y',
+                        tension: 0.2,
+                        fill: true
+                    },
+                    {
+                        label: 'Estimasi Biaya (Rp/1.55)',
+                        data: [],
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        borderWidth: 2,
+                        yAxisID: 'y1',
+                        tension: 0.2,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                stacked: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Debit (L/m)'
+                        },
+                        beginAtZero: true
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Biaya (Rp/1.550)'
+                        },
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Monitoring Debit dan Biaya (Realtime)'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.datasetIndex === 1) {
+                                    return label + 'Rp ' + (context.parsed.y * 1550).toFixed(2);
+                                }
+                                return label + context.parsed.y.toFixed(2) + ' L/m';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+<script>
+    const historicalCtx = document.getElementById('historicalChart').getContext('2d');
+    window.historicalChart = new Chart(historicalCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Debit Air (L/m)',
+                    data: [],
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    yAxisID: 'y',
+                    tension: 0.2,
+                    fill: true
+                },
+                {
+                    label: 'Biaya (Rp/100)',
+                    data: [],
+                    borderColor: 'rgba(255, 159, 64, 1)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                    borderWidth: 2,
+                    yAxisID: 'y1',
+                    tension: 0.2,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            stacked: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Debit (L/m)'
+                    },
+                    beginAtZero: true
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Biaya (Rp/100)'
+                    },
+                    beginAtZero: true,
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Penggunaan Air Harian'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.datasetIndex === 1) {
+                                return label + 'Rp ' + (context.parsed.y * 100).toFixed(2);
+                            }
+                            return label + context.parsed.y.toFixed(2) + ' L/m';
+                        }
+                    }
+                }
+            }
+        }
+    });
 
-    <script type="module" src="https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js"></script>
-    <script type="module" src="https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js"></script>
-    
-    <script type="module" src="script.js"></script>
+    window.appFunctions.changeDateRange('day');
+</script>
+    <footer class="text-center text-gray-500 text-sm mt-6 pb-4">
+        &copy; 2025 Alim mursid - Monitoring Air PDAM. All rights reserved.
+    </footer>
 </body>
 </html>
