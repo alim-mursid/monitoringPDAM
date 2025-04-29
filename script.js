@@ -151,7 +151,6 @@ function loadBatasDebit() {
 }
 
 function loadHistoricalData() {
-    // Ambil nilai total air langsung dari /monitoring/total
     const totalRef = ref(db, `/monitoring/total`);
 
     onValue(totalRef, (snapshot) => {
