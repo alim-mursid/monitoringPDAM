@@ -154,11 +154,8 @@ function loadHistoricalData() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    const riwayatRef = query(
-        ref(db, `/users/${fixedUserUid}/riwayat`),
-        orderByChild('waktu'),
-        limitToLast(1000)
-    );
+    // FIXED: Use simple ref instead of query with orderByChild
+    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
     
     onValue(riwayatRef, (snapshot) => {
         if (!snapshot.exists()) {
@@ -434,6 +431,7 @@ function formatDate(date) {
 function formatDateTime(date) {
     return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 }
+
 function getWeekStartDate(date) {
     const result = new Date(date);
     const day = result.getDay(); 
@@ -478,11 +476,7 @@ function initializeMonthlyDataRecording() {
     const today = new Date();
     const todayStr = formatDate(today);
     
-    const riwayatRef = query(
-        ref(db, `/users/${fixedUserUid}/riwayat`),
-        orderByChild('waktu'),
-        limitToLast(50)
-    );
+    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
     
     get(riwayatRef).then((snapshot) => {
         if (!snapshot.exists()) {
@@ -504,15 +498,15 @@ function initializeMonthlyDataRecording() {
         if (!hasEntryForToday) {
             const entries = Object.values(riwayatData);
             if (entries.length > 0) {
-                const lastEntry = entries.sort((a, b) => {
+                // Sort entries manually by waktu
+                const sortedEntries = entries.sort((a, b) => {
                     return new Date(b.waktu) - new Date(a.waktu);
-                })[0];
-                
+                });
+                const lastEntry = sortedEntries[0];
                 
                 const todayTotal = lastEntry.total + (Math.random() * 2 + 1); 
                 addMonitoringDataEntry(todayTotal);
             } else {
-             
                 addMonitoringDataEntry(10);
             }
         }
@@ -520,8 +514,6 @@ function initializeMonthlyDataRecording() {
 }
 
 function generateSampleData() {
-
-    
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 30); 
     
