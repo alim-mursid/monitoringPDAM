@@ -204,15 +204,17 @@ function updateUI(data) {
     const batasDebit = parseFloat(elemBatasDebit.value || "0");
     if (batasDebit > 0 && data.debit && data.debit > batasDebit) {
         elemStatusAlert.innerText = "PERINGATAN: Debit melebihi batas!";
-        elemStatusAlert.classList.remove("hidden", "status-normal");
-        elemStatusAlert.classList.add("status-warning");
+        elemStatusAlert.classList.remove("hidden");
+        elemStatusAlert.classList.remove("text-green-600");
+        elemStatusAlert.classList.add("text-red-600");
+        
         
         set(ref(db, '/control/buzzer'), true);
     } else {
         elemStatusAlert.innerText = "Status: Normal";
-        elemStatusAlert.classList.remove("hidden", "status-warning");
-        elemStatusAlert.classList.add("status-normal");
-        
+        elemStatusAlert.classList.remove("hidden");
+        elemStatusAlert.classList.remove("text-red-600");
+        elemStatusAlert.classList.add("text-green-600");
         set(ref(db, '/control/buzzer'), false);
     }
 }
@@ -345,19 +347,30 @@ function handleChartViewChange() {
     loadHistoricalData();
 }
 
+function convertToFlowRate(totalLiters) {
+    const calibrationFactor = 7.5; 
+    let flowRateEstimate = totalLiters / (1 / 60);  
+    let adjustedFlowRate = flowRateEstimate * calibrationFactor;  
+    return adjustedFlowRate;
+}
+
 function saveBatasDebit() {
-    const batasDebit = parseFloat(elemBatasDebit.value);
-    
-    if (isNaN(batasDebit) || batasDebit < 0) {
+    const estimasiLiter = parseFloat(elemBatasDebit.value); 
+
+    if (isNaN(estimasiLiter) || estimasiLiter < 0) {
         alert("Mohon masukkan nilai batas debit yang valid (angka positif)");
         return;
     }
-    
-    set(ref(db, '/control/batasDebit'), batasDebit)
+
+   
+    const calibrationFactor = 7.5; 
+    const nilaiFlowRate = estimasiLiter * calibrationFactor;
+
+    set(ref(db, '/control/batasDebit'), nilaiFlowRate)
         .then(() => {
-            console.log("Batas debit berhasil disimpan di control");
-            
-            return set(ref(db, `/users/${fixedUserUid}/settings/batasDebit`), batasDebit);
+            console.log("Flow rate berhasil disimpan di control");
+
+            return set(ref(db, `/users/${fixedUserUid}/settings/batasDebit`), estimasiLiter);
         })
         .then(() => {
             alert("Batas debit berhasil disimpan");
@@ -367,6 +380,7 @@ function saveBatasDebit() {
             alert("Gagal menyimpan batas debit: " + error.message);
         });
 }
+
 
 function exportToExcel() {
     const total = elemTotal.innerText;
@@ -519,46 +533,6 @@ function initializeMonthlyDataRecording() {
             }
         }
     });
-}
-
-function generateSampleData() {
-
-    
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30); 
-    
-    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
-    
-    let total = 0;
-    const promises = [];
-    
-    for (let i = 0; i < 30; i++) {
-        const currentDate = new Date(startDate);
-        currentDate.setDate(currentDate.getDate() + i);
-        total += Math.random() * 4 + 1;
-        
-        const biaya = total * hargaPerLiter;
-        const waktu = currentDate.toLocaleString();
-        
-        promises.push(
-            push(riwayatRef, { 
-                waktu, 
-                total, 
-                biaya
-            })
-        );
-    }
-    
-    Promise.all(promises)
-        .then(() => {
-            console.log("Sample data generated successfully");
-            alert("Data sampel untuk 30 hari terakhir berhasil dibuat");
-            loadHistoricalData();
-        })
-        .catch(error => {
-            console.error("Error generating sample data:", error);
-            alert("Gagal membuat data sampel: " + error.message);
-        });
 }
 
 function setupDailyDataCheck() {
