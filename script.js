@@ -151,18 +151,34 @@ function loadBatasDebit() {
 }
 
 function loadHistoricalData() {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    // FIXED: Use simple ref instead of query with orderByChild
-    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
-    
-    onValue(riwayatRef, (snapshot) => {
+    // Ambil nilai total air langsung dari /monitoring/total
+    const totalRef = ref(db, `/monitoring/total`);
+
+    onValue(totalRef, (snapshot) => {
         if (!snapshot.exists()) {
             updateUI({ total: 0, biaya: 0 });
             return;
         }
-        
+
+        const totalValue = snapshot.val();
+        updateUI({
+            total: totalValue,
+            biaya: totalValue * hargaPerLiter
+        });
+    });
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
+
+    onValue(riwayatRef, (snapshot) => {
+        if (!snapshot.exists()) {
+            populateHistoryTable([]);
+            updateChartData([]);
+            return;
+        }
+
         const riwayatData = snapshot.val();
         const riwayatArray = Object.keys(riwayatData).map(key => {
             return {
@@ -175,22 +191,12 @@ function loadHistoricalData() {
         }).sort((a, b) => {
             return a.date - b.date;
         });
-        
-        if (riwayatArray.length > 0) {
-            const latestRecord = riwayatArray[riwayatArray.length - 1];
-            updateUI({
-                total: latestRecord.total,
-                biaya: latestRecord.biaya
-            });
-        } else {
-            updateUI({ total: 0, biaya: 0 });
-        }
-        
+
         populateHistoryTable(riwayatArray.slice(-50));
-        
         updateChartData(riwayatArray);
     });
 }
+
 
 function updateUI(data) {
     elemTotal.innerText = data.total.toFixed(2) + " L";
@@ -498,7 +504,6 @@ function initializeMonthlyDataRecording() {
         if (!hasEntryForToday) {
             const entries = Object.values(riwayatData);
             if (entries.length > 0) {
-                // Sort entries manually by waktu
                 const sortedEntries = entries.sort((a, b) => {
                     return new Date(b.waktu) - new Date(a.waktu);
                 });
@@ -511,44 +516,6 @@ function initializeMonthlyDataRecording() {
             }
         }
     });
-}
-
-function generateSampleData() {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30); 
-    
-    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
-    
-    let total = 0;
-    const promises = [];
-    
-    for (let i = 0; i < 30; i++) {
-        const currentDate = new Date(startDate);
-        currentDate.setDate(currentDate.getDate() + i);
-        total += Math.random() * 4 + 1;
-        
-        const biaya = total * hargaPerLiter;
-        const waktu = currentDate.toLocaleString();
-        
-        promises.push(
-            push(riwayatRef, { 
-                waktu, 
-                total, 
-                biaya
-            })
-        );
-    }
-    
-    Promise.all(promises)
-        .then(() => {
-            console.log("Sample data generated successfully");
-            alert("Data sampel untuk 30 hari terakhir berhasil dibuat");
-            loadHistoricalData();
-        })
-        .catch(error => {
-            console.error("Error generating sample data:", error);
-            alert("Gagal membuat data sampel: " + error.message);
-        });
 }
 
 function setupDailyDataCheck() {
