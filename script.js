@@ -197,7 +197,6 @@ function loadHistoricalData() {
     });
 }
 
-
 function updateUI(data) {
     elemTotal.innerText = data.total.toFixed(2) + " L";
     elemEstimasi.innerText = "Rp " + data.biaya.toFixed(2);
@@ -437,7 +436,6 @@ function formatDate(date) {
 function formatDateTime(date) {
     return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 }
-
 function getWeekStartDate(date) {
     const result = new Date(date);
     const day = result.getDay(); 
@@ -482,7 +480,11 @@ function initializeMonthlyDataRecording() {
     const today = new Date();
     const todayStr = formatDate(today);
     
-    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
+    const riwayatRef = query(
+        ref(db, `/users/${fixedUserUid}/riwayat`),
+        orderByChild('waktu'),
+        limitToLast(50)
+    );
     
     get(riwayatRef).then((snapshot) => {
         if (!snapshot.exists()) {
@@ -504,18 +506,59 @@ function initializeMonthlyDataRecording() {
         if (!hasEntryForToday) {
             const entries = Object.values(riwayatData);
             if (entries.length > 0) {
-                const sortedEntries = entries.sort((a, b) => {
+                const lastEntry = entries.sort((a, b) => {
                     return new Date(b.waktu) - new Date(a.waktu);
-                });
-                const lastEntry = sortedEntries[0];
+                })[0];
+                
                 
                 const todayTotal = lastEntry.total + (Math.random() * 2 + 1); 
                 addMonitoringDataEntry(todayTotal);
             } else {
+             
                 addMonitoringDataEntry(10);
             }
         }
     });
+}
+
+function generateSampleData() {
+
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30); 
+    
+    const riwayatRef = ref(db, `/users/${fixedUserUid}/riwayat`);
+    
+    let total = 0;
+    const promises = [];
+    
+    for (let i = 0; i < 30; i++) {
+        const currentDate = new Date(startDate);
+        currentDate.setDate(currentDate.getDate() + i);
+        total += Math.random() * 4 + 1;
+        
+        const biaya = total * hargaPerLiter;
+        const waktu = currentDate.toLocaleString();
+        
+        promises.push(
+            push(riwayatRef, { 
+                waktu, 
+                total, 
+                biaya
+            })
+        );
+    }
+    
+    Promise.all(promises)
+        .then(() => {
+            console.log("Sample data generated successfully");
+            alert("Data sampel untuk 30 hari terakhir berhasil dibuat");
+            loadHistoricalData();
+        })
+        .catch(error => {
+            console.error("Error generating sample data:", error);
+            alert("Gagal membuat data sampel: " + error.message);
+        });
 }
 
 function setupDailyDataCheck() {
