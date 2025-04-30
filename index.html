@@ -137,28 +137,39 @@
                 }
                 
                
-                const batasDebit = parseFloat(document.getElementById("batasDebit").value || "0");
-                if (batasDebit > 0 && data.debit > batasDebit) {
-                    document.getElementById("statusAlert").innerText = "PERINGATAN: Debit melebihi batas!";
-                    document.getElementById("statusAlert").classList.remove("hidden");
-                    document.getElementById("statusAlert").classList.remove("text-green-600");
-                    document.getElementById("statusAlert").classList.remove("bg-green-100");
-                    document.getElementById("statusAlert").classList.add("text-red-600");
-                    document.getElementById("statusAlert").classList.add("bg-red-100");
-                    
-                   
-                    set(ref(db, '/control/buzzer'), true);
-                } else {
-                    document.getElementById("statusAlert").innerText = "Status: Normal";
-                    document.getElementById("statusAlert").classList.remove("hidden");
-                    document.getElementById("statusAlert").classList.remove("text-red-600");
-                    document.getElementById("statusAlert").classList.remove("bg-red-100");
-                    document.getElementById("statusAlert").classList.add("text-green-600");
-                    document.getElementById("statusAlert").classList.add("bg-green-100");
-                    
-                   
-                    set(ref(db, '/control/buzzer'), false);
+                let debitSebelumnya = 0;
+                let counterNaikPelan = 0;
+                const ambangKenaikan = 0.02; 
+                const ambangHitung = 4;
+
+                function updateStatus(data) {
+                    const batasDebit = parseFloat(document.getElementById("batasDebit").value || "0");
+
+                    if (data.debit > debitSebelumnya + ambangKenaikan) {
+                        counterNaikPelan++;
+                    } else {
+                        counterNaikPelan = Math.max(0, counterNaikPelan - 1);
+                    }
+
+                    debitSebelumnya = data.debit;
+
+                    const debitLangsungTinggi = batasDebit > 0 && data.debit > batasDebit;
+                    const debitNaikTerus = counterNaikPelan >= ambangHitung;
+                    const harusBunyi = debitLangsungTinggi || debitNaikTerus;
+
+                    if (harusBunyi) {
+                        set(ref(db, '/control/buzzer'), true);
+                        document.getElementById("statusAlert").innerText = "PERINGATAN: Debit meningkat!";
+                        document.getElementById("statusAlert").classList.remove("hidden", "text-green-600", "bg-green-100");
+                        document.getElementById("statusAlert").classList.add("text-red-600", "bg-red-100");
+                    } else {
+                        set(ref(db, '/control/buzzer'), false);
+                        document.getElementById("statusAlert").innerText = "Status: Normal";
+                        document.getElementById("statusAlert").classList.remove("hidden", "text-red-600", "bg-red-100");
+                        document.getElementById("statusAlert").classList.add("text-green-600", "bg-green-100");
+                    }
                 }
+
 
                
                 simpanRiwayat(fixedUserUid, data.debit, data.total, estimasiHarga);
