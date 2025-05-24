@@ -36,6 +36,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // Element references
     const userSelect = document.getElementById("userSelect");
     const debitElem = document.getElementById("debit");
     const totalElem = document.getElementById("total");
@@ -47,9 +48,10 @@
     const exportExcelBtn = document.getElementById("exportExcel");
     const clearHistoryBtn = document.getElementById("clearHistory");
 
-    let selectedUser = "esp1";
+    let selectedUser = "esp1"; // Default user
     let lastTotal = 0;
 
+    // Format Rupiah function menggunakan Intl.NumberFormat
     function formatRupiah(value) {
       return new Intl.NumberFormat("id-ID", {
         style: "currency",
@@ -59,21 +61,7 @@
       }).format(value);
     }
 
-    function formatDateTime(dateString) {
-      const date = new Date(dateString);
-      const formattedDate = date.toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-      const formattedTime = date.toLocaleTimeString("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-      return `${formattedDate} ${formattedTime}`;
-    }
-
+    // Load data realtime dan riwayat
     function loadData(user) {
       const monitoringRef = ref(db, `/${user}/monitoring`);
       onValue(monitoringRef, (snapshot) => {
@@ -88,6 +76,7 @@
 
           lastTotal = data.total;
 
+          // Cek batas liter untuk status dan alert
           const batasLiterRef = ref(db, `/${user}/settings/batasLiter`);
           get(batasLiterRef).then((snap) => {
             if (snap.exists()) {
@@ -107,6 +96,7 @@
         }
       });
 
+      // Load riwayat 50 terakhir
       const riwayatRef = query(
         ref(db, `/${user}/riwayat`),
         orderByChild("waktu"),
@@ -116,13 +106,16 @@
         riwayatBody.innerHTML = "";
         if (snapshot.exists()) {
           const data = snapshot.val();
+          // data berupa object, urutkan berdasarkan waktu ascending
           const entries = Object.values(data).sort(
             (a, b) => new Date(a.waktu) - new Date(b.waktu)
           );
           entries.forEach((entry) => {
             const row = document.createElement("tr");
             row.innerHTML = `
-              <td class="border px-3 py-1">${formatDateTime(entry.waktu)}</td>
+              <td class="border px-3 py-1">${new Date(
+                entry.waktu
+              ).toLocaleString("id-ID")}</td>
               <td class="border px-3 py-1">${entry.debit.toFixed(2)}</td>
               <td class="border px-3 py-1">${entry.total.toFixed(2)}</td>
               <td class="border px-3 py-1">${formatRupiah(entry.biaya)}</td>
@@ -133,6 +126,7 @@
       });
     }
 
+    // Simpan batas liter ke Firebase
     function saveBatasLiter() {
       const val = parseFloat(batasLiterElem.value);
       if (isNaN(val) || val < 0) {
@@ -144,30 +138,15 @@
         .catch((err) => alert("Gagal simpan batas liter: " + err.message));
     }
 
+    // Export riwayat ke Excel
     function exportToExcel() {
-      let rows = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
+      let rows = [
+        ["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"],
+      ];
       riwayatBody.querySelectorAll("tr").forEach((tr) => {
         const cells = tr.querySelectorAll("td");
-        let waktuCell = cells[0].innerText;
-
-        // Format ulang waktu ke DD/MM/YYYY HH:mm
-        let dateObj = new Date(waktuCell);
-        let formattedDate = dateObj.toLocaleDateString("id-ID", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        });
-        let formattedTime = dateObj.toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        });
-        let formattedDateTime = `${formattedDate} ${formattedTime}`;
-
-        let row = [formattedDateTime];
-        for (let i = 1; i < cells.length; i++) {
-          row.push(cells[i].innerText);
-        }
+        let row = [];
+        cells.forEach((td) => row.push(td.innerText));
         rows.push(row);
       });
 
@@ -175,12 +154,10 @@
       const ws = XLSX.utils.aoa_to_sheet(rows);
       XLSX.utils.book_append_sheet(wb, ws, "Riwayat");
 
-      XLSX.writeFile(
-        wb,
-        `Riwayat_${selectedUser}_${new Date().toISOString()}.xlsx`
-      );
+      XLSX.writeFile(wb, `Riwayat_${selectedUser}_${new Date().toISOString()}.xlsx`);
     }
 
+    // Hapus semua riwayat di Firebase
     async function clearHistory() {
       if (
         confirm("Apakah Anda yakin ingin menghapus semua riwayat pengguna ini?")
@@ -204,6 +181,7 @@
     exportExcelBtn.addEventListener("click", exportToExcel);
     clearHistoryBtn.addEventListener("click", clearHistory);
 
+    // Load data awal
     loadData(selectedUser);
   </script>
 </head>
