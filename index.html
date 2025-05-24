@@ -59,9 +59,12 @@
   <div id="statusAlert" class="text-center p-3 mb-2 rounded-md text-white bg-green-600 font-semibold shadow-md">
     Status: Normal
   </div>
-  <div id="batasLiterDisplay" class="card border border-gray-400 text-center mb-6 text-sm text-gray-600 font-medium">
-    Batas Total Air: <span id="batasLiterValue">-</span> L
+  <div class="flex justify-center mb-6">
+  <div id="batasLiterDisplay" class="text-center border-2 border-red-600 rounded-lg p-2">
+    <p class="text-sm font-semibold text-gray-700">🚰 Batas Total Air</p>
+    <p id="batasLiterValue" class="text-base text-red-600 font-bold">- L</p>
   </div>
+</div>
 
   <div class="card mb-6">
     <canvas id="realtimeChart" height="180"></canvas>
@@ -253,10 +256,45 @@ document.getElementById("estimasi").textContent = `Rp ${biaya.toFixed(2)}`;
       });
 
       document.getElementById("clearHistory").addEventListener("click", () => {
-        if (confirm("Yakin ingin hapus semua riwayat?")) {
-          remove(ref(db, `${selectedUser}/riwayat`));
-        }
-      });
+  if (confirm("Yakin ingin hapus semua riwayat?")) {
+    remove(ref(db, `${selectedUser}/riwayat`));
+  }
+});
+
+function exportToExcel() {
+  const elemTotal = document.getElementById("total");
+  const elemEstimasi = document.getElementById("estimasi");
+  const elemBatasDebit = document.getElementById("batasDebit");
+
+  const total = elemTotal.innerText;
+  const estimasi = elemEstimasi.innerText;
+  const batasDebit = elemBatasDebit.value;
+
+  const tableRows = document.querySelectorAll("#riwayat-body tr");
+  let riwayatData = [["Waktu", "Total (L)", "Biaya (Rp)"]];
+  tableRows.forEach(row => {
+    const cells = row.querySelectorAll("td");
+    const rowData = [];
+    cells.forEach(cell => rowData.push(cell.innerText));
+    riwayatData.push(rowData);
+  });
+
+  const wsData = [
+    ["Monitoring Air PDAM"],
+    ["Laporan Dibuat Pada: " + new Date().toLocaleString()],
+    [""],
+    ["Total Air Digunakan:", total],
+    ["Estimasi Biaya:", estimasi],
+    ["Batas Debit:", batasDebit + " L/m"],
+    [""],
+    ["Riwayat Penggunaan"]
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
+  XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
+}
     });
   </script>
 </body>
