@@ -8,304 +8,98 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-    import {
-      getDatabase, ref, onValue, set, remove, off
-    } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAorkSRFuT1CwZtXMpJaEvmjW51a3LAse8",
-      authDomain: "monitoringairpdam-bd78d.firebaseapp.com",
-      databaseURL: "https://monitoringairpdam-bd78d-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "monitoringairpdam-bd78d",
-      storageBucket: "monitoringairpdam-bd78d.appspot.com",
-      messagingSenderId: "1050691156280",
-      appId: "1:1050691156280:web:8c5bc1da03e15dc69069cd"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    const userSelect = document.getElementById("userSelect");
-    const elemDebit = document.getElementById("debit");
-    const elemTotal = document.getElementById("total");
-    const elemEstimasi = document.getElementById("estimasi");
-    const elemBatasDebit = document.getElementById("batasDebit");
-    const elemStatusAlert = document.getElementById("statusAlert");
-    const elemRiwayatBody = document.getElementById("riwayat-body");
-
-    const btnSaveBatas = document.getElementById("saveBatas");
-    const btnExportExcel = document.getElementById("exportExcel");
-    const btnClearHistory = document.getElementById("clearHistory");
-
-    const hargaPerLiter = 1550 / 1000;
-
-    let selectedUser = userSelect.value || "esp1";
-
-    let monitoringRef = null;
-    let riwayatRef = null;
-    let batasRef = null;
-
-    let historicalChart = null;
-    let timeLabels = [];
-    let debitHistory = [];
-    let biayaHistory = [];
-
-    function init() {
-      initChart();
-      setupListeners();
-      attachFirebaseListeners();
+  <style>
+    body {
+      background-color: #0f172a;
     }
-
-    function initChart() {
-      const ctx = document.getElementById("realtimeChart").getContext("2d");
-      historicalChart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            { label: "Debit Air (L/m)", data: [], borderColor: "rgba(37,99,235,1)", backgroundColor: "rgba(37,99,235,0.2)", yAxisID: "y", fill: true, tension: 0.2 },
-            { label: "Estimasi Biaya (Rp/100)", data: [], borderColor: "rgba(245,158,11,1)", backgroundColor: "rgba(245,158,11,0.2)", yAxisID: "y1", fill: true, tension: 0.2 }
-          ],
-        },
-        options: {
-          responsive: true,
-          interaction: { mode: "index", intersect: false },
-          scales: {
-            y: { type: "linear", position: "left", beginAtZero: true, title: { display: true, text: "Debit (L/m)" } },
-            y1: { type: "linear", position: "right", beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: "Biaya (Rp/100)" } },
-          },
-          plugins: {
-            title: { display: true, text: "Monitoring Debit dan Biaya (Realtime)" },
-            tooltip: {
-              callbacks: {
-                label: function (ctx) {
-                  let label = ctx.dataset.label || "";
-                  if (label) label += ": ";
-                  if (ctx.datasetIndex === 1) return label + "Rp " + (ctx.parsed.y * 100).toFixed(2);
-                  return label + ctx.parsed.y.toFixed(2) + " L/m";
-                }
-              }
-            }
-          }
-        }
-      });
+    h1, h2, label, p, th, td, #statusAlert, #batasLiterDisplay {
+      color: #f8fafc;
     }
-
-    function attachFirebaseListeners() {
-  detachFirebaseListeners();
-
-  monitoringRef = ref(db, `/${selectedUser}/monitoring`);
-  riwayatRef = ref(db, `/${selectedUser}/riwayat`);
-  batasRef = ref(db, `/${selectedUser}/settings/batasLiter`);
-
-  onValue(monitoringRef, snap => {
-    if (!snap.exists()) return;
-    const data = snap.val();
-    updateRealtimeUI(data);
-    addChartData(data.debit, data.total);
-  });
-
-  onValue(riwayatRef, snap => {
-    if (!snap.exists()) {
-      elemRiwayatBody.innerHTML = "";
-      return;
+    input, select, button {
+      background-color: #1e293b;
+      color: white;
+      border-color: #334155;
     }
-    populateHistoryTable(snap.val());
-  });
-
-  onValue(batasRef, snap => {
-    if (snap.exists()) {
-      const val = snap.val();
-      elemBatasDebit.value = val;
-      batasLiterDisplay.innerText = val;
-      // Update status alert juga bisa disini, jika perlu
-    } else {
-      elemBatasDebit.value = "";
-      batasLiterDisplay.innerText = "-";
+    input::placeholder {
+      color: #94a3b8;
     }
-  });
-}
-
-
-    function detachFirebaseListeners() {
-      if (monitoringRef) off(monitoringRef);
-      if (riwayatRef) off(riwayatRef);
-      if (batasRef) off(batasRef);
+    .bg-card {
+      background-color: #1e293b;
     }
-
-    function updateRealtimeUI(data) {
-      elemDebit.innerText = (data.debit ?? 0).toFixed(2) + " L/m";
-      elemTotal.innerText = (data.total ?? 0).toFixed(2) + " L";
-      const estimasi = (data.total ?? 0) * hargaPerLiter;
-      elemEstimasi.innerText = "Rp " + estimasi.toFixed(2);
-
-      const batas = parseFloat(elemBatasDebit.value) || 0;
-      if (batas > 0 && (data.total ?? 0) > batas) {
-        elemStatusAlert.innerText = "PERINGATAN: Total liter melebihi batas!";
-        elemStatusAlert.classList.remove("hidden", "text-green-600");
-        elemStatusAlert.classList.add("text-red-600");
-      } else {
-        elemStatusAlert.innerText = "Status: Normal";
-        elemStatusAlert.classList.remove("hidden", "text-red-600");
-        elemStatusAlert.classList.add("text-green-600");
-      }
+    .text-shadow {
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
     }
-
-    function populateHistoryTable(data) {
-      elemRiwayatBody.innerHTML = "";
-      const entries = Object.values(data).sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
-      entries.slice(0, 50).forEach(item => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td class="border px-4 py-2">${item.waktu}</td>
-          <td class="border px-4 py-2">${(item.debit ?? 0).toFixed(2)}</td>
-          <td class="border px-4 py-2">${(item.total ?? 0).toFixed(2)}</td>
-          <td class="border px-4 py-2">Rp ${(item.biaya ?? 0).toFixed(2)}</td>
-        `;
-        elemRiwayatBody.appendChild(tr);
-      });
+    table tbody tr:hover {
+      background-color: #334155;
     }
-
-    function addChartData(debit, total) {
-      const now = new Date();
-      const label = now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0") + ":" + now.getSeconds().toString().padStart(2, "0");
-
-      timeLabels.push(label);
-      debitHistory.push(debit);
-      biayaHistory.push((total * hargaPerLiter) / 100);
-
-      if (timeLabels.length > 20) {
-        timeLabels.shift();
-        debitHistory.shift();
-        biayaHistory.shift();
-      }
-
-      historicalChart.data.labels = timeLabels;
-      historicalChart.data.datasets[0].data = debitHistory;
-      historicalChart.data.datasets[1].data = biayaHistory;
-      historicalChart.update();
+    .batas-indicator {
+      border: 2px solid #ef4444;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      background-color: #1e293b;
+      color: #f87171;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      text-align: center;
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
     }
-
-    function saveBatasDebit() {
-      const val = parseFloat(elemBatasDebit.value);
-      if (isNaN(val) || val < 0) {
-        alert("Masukkan batas liter valid (angka positif)");
-        return;
-      }
-      
-      set(ref(db, `/${selectedUser}/settings/batasLiter`), val)
-        .then(() => alert("Batas liter berhasil disimpan"))
-        .catch(e => alert("Gagal simpan batas liter: " + e.message));
-      elemBatasDebit.value = "";
+    select {
+      appearance: none;
+      padding-right: 2rem;
+      background-image: url('data:image/svg+xml;utf8,<svg fill="black" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      background-size: 1rem;
+      background-color: #f8fafc;
+      color: #0f172a;
     }
-
-    function exportToExcel() {
-      let tableRows = document.querySelectorAll("#riwayat-body tr");
-      let riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
-      tableRows.forEach(row => {
-        let rowData = [];
-        row.querySelectorAll("td").forEach(td => rowData.push(td.innerText));
-        riwayatData.push(rowData);
-      });
-
-      const wsData = [
-        ["Monitoring Air PDAM - " + selectedUser.toUpperCase()],
-        ["Laporan dibuat pada: " + new Date().toLocaleString()],
-        [],
-        ["Debit Saat Ini:", elemDebit.innerText],
-        ["Total Air Digunakan:", elemTotal.innerText],
-        ["Estimasi Biaya:", elemEstimasi.innerText],
-        ["Batas Liter:", elemBatasDebit.value + " L"],
-        [],
-        ["Riwayat Penggunaan"],
-      ];
-
-      const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
-      XLSX.writeFile(wb, "Monitoring_Air_PDAM_" + selectedUser + ".xlsx");
-    }
-
-    function clearHistory() {
-      if (!confirm("Yakin ingin menghapus semua riwayat pengguna ini?")) return;
-      remove(ref(db, `/${selectedUser}/riwayat`))
-        .then(() => {
-          alert("Riwayat berhasil dihapus");
-          elemRiwayatBody.innerHTML = "";
-          timeLabels = [];
-          debitHistory = [];
-          biayaHistory = [];
-          historicalChart.data.labels = [];
-          historicalChart.data.datasets.forEach(ds => (ds.data = []));
-          historicalChart.update();
-
-          elemDebit.innerText = "0.00 L/m";
-          elemTotal.innerText = "0.00 L";
-          elemEstimasi.innerText = "Rp 0.00";
-          elemStatusAlert.innerText = "Status: Normal";
-        })
-        .catch(e => alert("Gagal hapus riwayat: " + e.message));
-    }
-
-    function setupListeners() {
-      userSelect.addEventListener("change", e => {
-        selectedUser = e.target.value;
-        timeLabels = [];
-        debitHistory = [];
-        biayaHistory = [];
-        detachFirebaseListeners();
-        attachFirebaseListeners();
-      });
-
-      btnSaveBatas.addEventListener("click", saveBatasDebit);
-      btnExportExcel.addEventListener("click", exportToExcel);
-      btnClearHistory.addEventListener("click", clearHistory);
-    }
-
-    window.addEventListener("DOMContentLoaded", init);
-  </script>
+  </style>
 </head>
-<body class="p-6 font-sans text-gray-800 max-w-4xl mx-auto">
-  <h1 class="text-3xl font-bold text-blue-700 mb-6 text-center">Monitoring Air Multi Pengguna</h1>
+<body class="p-6 font-sans max-w-5xl mx-auto">
+  <h1 class="text-4xl font-bold text-center text-shadow mb-8">Monitoring Air Multi Pengguna</h1>
 
-  <div class="mb-6 flex items-center gap-4">
-    <label for="userSelect" class="font-semibold">Pilih Pengguna:</label>
-    <select id="userSelect" class="border rounded p-2">
-      <option value="esp1">Pengguna 1 (ESP1)</option>
-      <option value="esp2">Pengguna 2 (ESP2)</option>
-    </select>
+  <div class="mb-8 flex justify-center">
+    <div class="flex items-center gap-4">
+      <label for="userSelect" class="font-semibold">Pilih Pengguna:</label>
+      <select id="userSelect" class="border rounded p-2">
+        <option value="esp1">Pengguna 1 (ESP1)</option>
+        <option value="esp2">Pengguna 2 (ESP2)</option>
+      </select>
+    </div>
   </div>
 
-  <div class="grid grid-cols-3 gap-6 mb-6 text-center">
-    <div class="bg-green-100 rounded p-4 shadow">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 text-center">
+    <div class="bg-card rounded p-4 shadow-lg">
       <p class="font-semibold mb-2">Debit Air Saat Ini</p>
-      <p id="debit" class="text-3xl font-bold text-green-700">0.00 L/m</p>
+      <p id="debit" class="text-3xl font-bold text-emerald-400">0.00 L/m</p>
     </div>
-    <div class="bg-blue-100 rounded p-4 shadow">
+    <div class="bg-card rounded p-4 shadow-lg">
       <p class="font-semibold mb-2">Total Air Digunakan</p>
-      <p id="total" class="text-3xl font-bold text-blue-700">0.00 L</p>
+      <p id="total" class="text-3xl font-bold text-cyan-400">0.00 L</p>
     </div>
-    <div class="bg-yellow-100 rounded p-4 shadow">
+    <div class="bg-card rounded p-4 shadow-lg">
       <p class="font-semibold mb-2">Estimasi Biaya</p>
-      <p id="estimasi" class="text-3xl font-bold text-yellow-700">Rp 0.00</p>
+      <p id="estimasi" class="text-3xl font-bold text-yellow-400">Rp 0.00</p>
     </div>
   </div>
 
-  <div id="statusAlert" class="text-center p-3 mb-6 font-semibold rounded text-green-600 bg-green-100">
+  <div id="statusAlert" class="text-center p-3 mb-4 font-semibold rounded bg-green-700">
     Status: Normal
   </div>
-  <div id="batasLiterDisplay" class="text-center text-gray-700 mb-6">
-  Batas Liter Saat Ini: <span id="batasLiterValue">-</span> L
-  </div>
-  
-  <div class="mb-6">
-    <canvas id="realtimeChart" height="150"></canvas>
+  <div class="batas-indicator">
+    <p class="font-semibold mb-1">Batas Liter Saat Ini</p>
+    <span id="batasLiterValue">-</span> L
   </div>
 
-  <div class="mb-6 p-4 bg-white rounded shadow">
-    <h2 class="font-semibold text-lg mb-4">Pengaturan Batas Liter (L)</h2>
+  <div class="mb-6">
+    <canvas id="realtimeChart" height="180"></canvas>
+  </div>
+
+  <div class="mb-6 p-4 bg-card rounded shadow text-center">
+    <h2 class="font-semibold text-xl mb-4">Pengaturan Batas Liter (L)</h2>
     <input
       type="number"
       id="batasDebit"
@@ -314,16 +108,16 @@
       step="0.1"
       placeholder="Masukkan batas liter"
     />
-    <button id="saveBatas" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+    <button id="saveBatas" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
       Simpan Batas
     </button>
   </div>
 
   <div class="mb-6">
-    <h2 class="font-semibold text-lg mb-2">Riwayat Penggunaan (50 terakhir)</h2>
+    <h2 class="font-semibold text-xl mb-2">Riwayat Penggunaan (30 terakhir)</h2>
     <div class="overflow-x-auto border rounded shadow">
-      <table class="min-w-full text-left border-collapse">
-        <thead class="bg-blue-600 text-white">
+      <table class="min-w-full border-collapse">
+        <thead class="bg-blue-700">
           <tr>
             <th class="px-4 py-2 border">Waktu</th>
             <th class="px-4 py-2 border">Debit (L/m)</th>
@@ -331,21 +125,21 @@
             <th class="px-4 py-2 border">Biaya (Rp)</th>
           </tr>
         </thead>
-        <tbody id="riwayat-body"></tbody>
+        <tbody id="riwayat-body" class="text-gray-100"></tbody>
       </table>
     </div>
   </div>
 
-  <div class="flex gap-4 mb-10">
+  <div class="flex flex-col md:flex-row gap-4 mb-10">
     <button
       id="exportExcel"
-      class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex-1"
+      class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex-1"
     >
       Ekspor ke Excel
     </button>
     <button
       id="clearHistory"
-      class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex-1"
+      class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex-1"
     >
       Hapus Semua Riwayat
     </button>
@@ -354,5 +148,83 @@
   <footer class="text-center text-gray-500 text-sm">
     &copy; 2025 Monitoring Air PDAM Multi Pengguna
   </footer>
+
+  <script>
+    const ctx = document.getElementById('realtimeChart').getContext('2d');
+    const realtimeChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Debit Air (L/m)',
+            data: [],
+            borderColor: 'rgba(16, 185, 129, 1)',
+            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+            yAxisID: 'y',
+            tension: 0.4,
+            fill: true
+          },
+          {
+            label: 'Estimasi Biaya (Rp/100)',
+            data: [],
+            borderColor: 'rgba(234, 179, 8, 1)',
+            backgroundColor: 'rgba(234, 179, 8, 0.2)',
+            yAxisID: 'y1',
+            tension: 0.4,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        stacked: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Monitoring Debit dan Biaya (Realtime)',
+            color: '#f8fafc',
+            font: {
+              size: 18
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                let label = ctx.dataset.label || '';
+                if (label) label += ': ';
+                if (ctx.datasetIndex === 1) return label + 'Rp ' + (ctx.parsed.y * 100).toFixed(2);
+                return label + ctx.parsed.y.toFixed(2) + ' L/m';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#f8fafc' },
+            grid: { color: '#334155' }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'Debit (L/m)', color: '#f8fafc' },
+            ticks: { color: '#f8fafc' },
+            grid: { color: '#334155' }
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'Biaya (Rp/100)', color: '#f8fafc' },
+            ticks: { color: '#f8fafc' },
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    });
+  </script>
 </body>
 </html>
