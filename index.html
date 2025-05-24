@@ -191,31 +191,40 @@
     }
 
     function exportToExcel() {
-      let tableRows = document.querySelectorAll("#riwayat-body tr");
-      let riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
-      tableRows.forEach(row => {
-        let rowData = [];
-        row.querySelectorAll("td").forEach(td => rowData.push(td.innerText));
-        riwayatData.push(rowData);
-      });
+  // Ambil semua baris tabel riwayat
+  let tableRows = document.querySelectorAll("#riwayat-body tr");
+  let riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
 
-      const wsData = [
-        ["Monitoring Air PDAM - " + selectedUser.toUpperCase()],
-        ["Laporan dibuat pada: " + new Date().toLocaleString()],
-        [],
-        ["Debit Saat Ini:", elemDebit.innerText],
-        ["Total Air Digunakan:", elemTotal.innerText],
-        ["Estimasi Biaya:", elemEstimasi.innerText],
-        ["Batas Liter:", elemBatasDebit.value + " L"],
-        [],
-        ["Riwayat Penggunaan"],
-      ];
+  tableRows.forEach(row => {
+    let rowData = [];
+    row.querySelectorAll("td").forEach(td => rowData.push(td.innerText));
+    riwayatData.push(rowData);
+  });
 
-      const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
-      XLSX.writeFile(wb, "Monitoring_Air_PDAM_" + selectedUser + ".xlsx");
-    }
+  // Ambil data realtime saat ini untuk dimasukkan juga
+  const debitNow = elemDebit.innerText || "0.00 L/m";
+  const totalNow = elemTotal.innerText || "0.00 L";
+  const estimasiNow = elemEstimasi.innerText || "Rp 0.00";
+  const batasLiter = elemBatasDebit.value || "0";
+
+  const wsData = [
+    [`Monitoring Air PDAM - ${selectedUser.toUpperCase()}`],
+    [`Laporan dibuat pada: ${new Date().toLocaleString()}`],
+    [],
+    ["Debit Saat Ini:", debitNow],
+    ["Total Air Digunakan:", totalNow],
+    ["Estimasi Biaya:", estimasiNow],
+    ["Batas Liter:", `${batasLiter} L`],
+    [],
+    ["Riwayat Penggunaan"],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
+
+  XLSX.writeFile(wb, `Monitoring_Air_PDAM_${selectedUser}.xlsx`);
+}
 
     function clearHistory() {
       if (!confirm("Yakin ingin menghapus semua riwayat pengguna ini?")) return;
