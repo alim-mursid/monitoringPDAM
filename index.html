@@ -245,17 +245,10 @@
       });
 
       document.getElementById("saveBatas").addEventListener("click", () => {
-  const input = document.getElementById("batasDebit");
-  const val = parseFloat(input.value);
-
-  if (isNaN(val)) return alert("Nilai tidak valid!");
-  
-  set(ref(db, `${selectedUser}/settings/batasLiter`), val)
-    .then(() => {
-      input.value = ""; // kosongkan textbox setelah berhasil simpan
-    });
-});
-
+        const val = parseFloat(document.getElementById("batasDebit").value);
+        if (isNaN(val)) return alert("Nilai tidak valid!");
+        set(ref(db, `${selectedUser}/settings/batasLiter`), val);
+      });
 
       document.getElementById("exportExcel").addEventListener("click", () => {
         const rows = document.querySelectorAll("#riwayat-body tr");
