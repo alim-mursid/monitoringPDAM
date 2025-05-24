@@ -94,31 +94,40 @@
     }
 
     function attachFirebaseListeners() {
-      detachFirebaseListeners();
+  detachFirebaseListeners();
 
-      monitoringRef = ref(db, `/${selectedUser}/monitoring`);
-      riwayatRef = ref(db, `/${selectedUser}/riwayat`);
-      batasRef = ref(db, `/${selectedUser}/settings/batasLiter`);
+  monitoringRef = ref(db, `/${selectedUser}/monitoring`);
+  riwayatRef = ref(db, `/${selectedUser}/riwayat`);
+  batasRef = ref(db, `/${selectedUser}/settings/batasLiter`);
 
-      onValue(monitoringRef, snap => {
-        if (!snap.exists()) return;
-        const data = snap.val();
-        updateRealtimeUI(data);
-        addChartData(data.debit, data.total);
-      });
+  onValue(monitoringRef, snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
+    updateRealtimeUI(data);
+    addChartData(data.debit, data.total);
+  });
 
-      onValue(riwayatRef, snap => {
-        if (!snap.exists()) {
-          elemRiwayatBody.innerHTML = "";
-          return;
-        }
-        populateHistoryTable(snap.val());
-      });
-
-      onValue(batasRef, snap => {
-        elemBatasDebit.value = snap.exists() ? snap.val() : "";
-      });
+  onValue(riwayatRef, snap => {
+    if (!snap.exists()) {
+      elemRiwayatBody.innerHTML = "";
+      return;
     }
+    populateHistoryTable(snap.val());
+  });
+
+  onValue(batasRef, snap => {
+    if (snap.exists()) {
+      const val = snap.val();
+      elemBatasDebit.value = val;
+      batasLiterDisplay.innerText = val;
+      // Update status alert juga bisa disini, jika perlu
+    } else {
+      elemBatasDebit.value = "";
+      batasLiterDisplay.innerText = "-";
+    }
+  });
+}
+
 
     function detachFirebaseListeners() {
       if (monitoringRef) off(monitoringRef);
@@ -287,7 +296,10 @@
   <div id="statusAlert" class="text-center p-3 mb-6 font-semibold rounded text-green-600 bg-green-100">
     Status: Normal
   </div>
-
+  <div id="batasLiterDisplay" class="text-center text-gray-700 mb-6">
+  Batas Liter Saat Ini: <span id="batasLiterValue">-</span> L
+  </div>
+  
   <div class="mb-6">
     <canvas id="realtimeChart" height="150"></canvas>
   </div>
