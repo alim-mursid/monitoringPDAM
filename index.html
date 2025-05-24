@@ -275,9 +275,14 @@
       });
 
       document.getElementById("clearHistory").addEventListener("click", () => {
-        if (confirm("Yakin ingin hapus semua riwayat?")) {
-          remove(ref(db, `${selectedUser}/riwayat`));
-          set(ref(db, `${selectedUser}/monitoring/total`), 0);
+  if (confirm("Yakin ingin hapus semua riwayat?")) {
+    remove(ref(db, `${selectedUser}/riwayat`));
+    set(ref(db, `${selectedUser}/monitoring`), {
+      debit: 0,
+      total: 0,
+      biaya: 0
+    });
+  }
         }
       });
     });
