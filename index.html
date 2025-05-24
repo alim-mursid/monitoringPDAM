@@ -275,10 +275,10 @@
       });
 
       document.getElementById("clearHistory").addEventListener("click", () => {
-        if (confirm("Yakin ingin hapus semua riwayat?")) {
-          remove(ref(db, `${selectedUser}/riwayat`));
-        }
-      });
+  if (confirm("Yakin ingin hapus semua riwayat?")) {
+    remove(ref(db, `${selectedUser}/riwayat`));
+    set(ref(db, `${selectedUser}/monitoring/total`), 0);
+  }
     });
   </script>
 </body>
