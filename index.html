@@ -14,6 +14,7 @@
       getDatabase,
       ref,
       onValue,
+      push,
       set,
       get,
       query,
@@ -147,9 +148,23 @@
       let rows = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
       riwayatBody.querySelectorAll("tr").forEach((tr) => {
         const cells = tr.querySelectorAll("td");
-        const waktuCell = cells[0].innerText;
+        let waktuCell = cells[0].innerText;
 
-        let row = [waktuCell];
+        // Format ulang waktu ke DD/MM/YYYY HH:mm
+        let dateObj = new Date(waktuCell);
+        let formattedDate = dateObj.toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+        let formattedTime = dateObj.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        let formattedDateTime = `${formattedDate} ${formattedTime}`;
+
+        let row = [formattedDateTime];
         for (let i = 1; i < cells.length; i++) {
           row.push(cells[i].innerText);
         }
