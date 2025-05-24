@@ -1,4 +1,4 @@
-// Firebase setup
+/*// Firebase setup
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
 import {
   getDatabase, ref, onValue, set, remove, off
@@ -127,3 +127,4 @@ window.addEventListener("DOMContentLoaded", () => {
     remove(ref(db, `/${selectedUser}/riwayat`));
   });
 });
+*/
