@@ -60,11 +60,11 @@
     Status: Normal
   </div>
   <div class="flex justify-center mb-6">
-  <div id="batasLiterDisplay" class="text-center border-2 border-red-600 rounded-lg p-2">
-    <p class="text-sm font-semibold text-gray-700">🚰 Batas Total Air</p>
-    <p id="batasLiterValue" class="text-base text-red-600 font-bold">- L</p>
+    <div id="batasLiterDisplay" class="text-center border-2 border-red-600 rounded-lg p-2">
+      <p class="text-sm font-semibold text-gray-700">🚰 Batas Total Air</p>
+      <p id="batasLiterValue" class="text-base text-red-600 font-bold">- L</p>
+    </div>
   </div>
-</div>
 
   <div class="card mb-6">
     <canvas id="realtimeChart" height="180"></canvas>
@@ -170,26 +170,26 @@
       batasRef = ref(db, `${selectedUser}/settings/batasLiter`);
 
       onValue(monitoringRef, snap => {
-  const data = snap.val();
-  if (!data) return;
-  document.getElementById("debit").textContent = `${data.debit.toFixed(2)} L/m`;
-  document.getElementById("total").textContent = `${data.total.toFixed(2)} L`;
-  const biaya = data.total * hargaPerLiter;
-document.getElementById("estimasi").textContent = `Rp ${biaya.toFixed(2)}`;
+        const data = snap.val();
+        if (!data) return;
+        document.getElementById("debit").textContent = `${data.debit.toFixed(2)} L/m`;
+        document.getElementById("total").textContent = `${data.total.toFixed(2)} L`;
+        const biaya = data.total * hargaPerLiter;
+        document.getElementById("estimasi").textContent = `Rp ${biaya.toFixed(2)}`;
 
-  const batasStr = document.getElementById("batasLiterValue").textContent;
-  const batas = parseFloat(batasStr === '-' ? '0' : batasStr);
-  const alert = document.getElementById("statusAlert");
+        const batasStr = document.getElementById("batasLiterValue").textContent;
+        const batas = parseFloat(batasStr === '-' ? '0' : batasStr);
+        const alert = document.getElementById("statusAlert");
 
-  if (!isNaN(batas) && batas > 0 && data.total > batas) {
-    alert.textContent = "⚠️ PERINGATAN: Total melebihi batas!";
-    alert.className = "text-center p-3 mb-6 rounded-md text-white bg-red-600 font-semibold shadow-md";
-  } else {
-    alert.textContent = "✅ Status: Normal";
-    alert.className = "text-center p-3 mb-6 rounded-md text-white bg-green-600 font-semibold shadow-md";
-  }
+        if (!isNaN(batas) && batas > 0 && data.total > batas) {
+          alert.textContent = "⚠️ PERINGATAN: Total melebihi batas!";
+          alert.className = "text-center p-3 mb-6 rounded-md text-white bg-red-600 font-semibold shadow-md";
+        } else {
+          alert.textContent = "✅ Status: Normal";
+          alert.className = "text-center p-3 mb-6 rounded-md text-white bg-green-600 font-semibold shadow-md";
+        }
 
-  updateChart(data);
+        updateChart(data);
       });
 
       onValue(riwayatRef, snap => {
@@ -243,72 +243,42 @@ document.getElementById("estimasi").textContent = `Rp ${biaya.toFixed(2)}`;
       });
 
       document.getElementById("exportExcel").addEventListener("click", () => {
-        const rows = document.querySelectorAll("#riwayat-body tr");
-        const data = [["Waktu", "Debit", "Total", "Biaya"]];
-        rows.forEach(r => {
-          const cells = Array.from(r.children).map(td => td.textContent);
-          data.push(cells);
+        const elemDebit = document.getElementById("debit").innerText;
+        const elemTotal = document.getElementById("total").innerText;
+        const elemEstimasi = document.getElementById("estimasi").innerText;
+        const batasLiter = document.getElementById("batasLiterValue").textContent;
+
+        const tableRows = document.querySelectorAll("#riwayat-body tr");
+        const riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
+
+        tableRows.forEach(row => {
+          const cells = Array.from(row.querySelectorAll("td")).map(cell => cell.innerText);
+          riwayatData.push(cells);
         });
-        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        const wsData = [
+          ["Monitoring Air PDAM - " + selectedUser.toUpperCase()],
+          ["Laporan dibuat pada: " + new Date().toLocaleString()],
+          [],
+          ["Debit Saat", elemDebit],
+          ["Total Air Digunakan", elemTotal],
+          ["Estimasi Biaya", elemEstimasi],
+          ["Batas Liter", batasLiter + " L"],
+          [],
+          ["Riwayat Penggunaan"]
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data");
-        XLSX.writeFile(wb, `Riwayat_${selectedUser}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
+        XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
       });
 
       document.getElementById("clearHistory").addEventListener("click", () => {
-  if (confirm("Yakin ingin hapus semua riwayat?")) {
-    remove(ref(db, `${selectedUser}/riwayat`));
-  }
-});
-
-function exportToExcel() {
-  const elemDebit = document.getElementById("debit").innerText;
-  const elemTotal = document.getElementById("total").innerText;
-  const elemEstimasi = document.getElementById("estimasi").innerText;
-  const batasLiter = document.getElementById("batasLiterValue").textContent;
-
-  const tableRows = document.querySelectorAll("#riwayat-body tr");
-  const riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
-
-  tableRows.forEach(row => {
-    const cells = Array.from(row.querySelectorAll("td")).map(cell => cell.innerText);
-    riwayatData.push(cells);
-  });
-
-  const wsData = [
-    ["Monitoring Air PDAM - " + selectedUser.toUpperCase()],
-    ["Laporan dibuat pada: " + new Date().toLocaleString()],
-    [],
-    ["Debit Saat", elemDebit],
-    ["Total Air Digunakan", elemTotal],
-    ["Estimasi Biaya", elemEstimasi],
-    ["Batas Liter", batasLiter + " L"],
-    [],
-    ["Riwayat Penggunaan"]
-  ];
-
-  const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
-  XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
-});
-
-  const wsData = [
-    ["Monitoring Air PDAM"],
-    ["Laporan Dibuat Pada: " + new Date().toLocaleString()],
-    [""],
-    ["Total Air Digunakan:", total],
-    ["Estimasi Biaya:", estimasi],
-    ["Batas Debit:", batasDebit + " L/m"],
-    [""],
-    ["Riwayat Penggunaan"]
-  ];
-
-  const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
-  XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
-}
+        if (confirm("Yakin ingin hapus semua riwayat?")) {
+          remove(ref(db, `${selectedUser}/riwayat`));
+        }
+      });
     });
   </script>
 </body>
