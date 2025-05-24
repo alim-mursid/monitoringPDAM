@@ -262,22 +262,36 @@ document.getElementById("estimasi").textContent = `Rp ${biaya.toFixed(2)}`;
 });
 
 function exportToExcel() {
-  const elemTotal = document.getElementById("total");
-  const elemEstimasi = document.getElementById("estimasi");
-  const elemBatasDebit = document.getElementById("batasDebit");
-
-  const total = elemTotal.innerText;
-  const estimasi = elemEstimasi.innerText;
-  const batasDebit = elemBatasDebit.value;
+  const elemDebit = document.getElementById("debit").innerText;
+  const elemTotal = document.getElementById("total").innerText;
+  const elemEstimasi = document.getElementById("estimasi").innerText;
+  const batasLiter = document.getElementById("batasLiterValue").textContent;
 
   const tableRows = document.querySelectorAll("#riwayat-body tr");
-  let riwayatData = [["Waktu", "Total (L)", "Biaya (Rp)"]];
+  const riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
+
   tableRows.forEach(row => {
-    const cells = row.querySelectorAll("td");
-    const rowData = [];
-    cells.forEach(cell => rowData.push(cell.innerText));
-    riwayatData.push(rowData);
+    const cells = Array.from(row.querySelectorAll("td")).map(cell => cell.innerText);
+    riwayatData.push(cells);
   });
+
+  const wsData = [
+    ["Monitoring Air PDAM - " + selectedUser.toUpperCase()],
+    ["Laporan dibuat pada: " + new Date().toLocaleString()],
+    [],
+    ["Debit Saat", elemDebit],
+    ["Total Air Digunakan", elemTotal],
+    ["Estimasi Biaya", elemEstimasi],
+    ["Batas Liter", batasLiter + " L"],
+    [],
+    ["Riwayat Penggunaan"]
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
+  XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
+});
 
   const wsData = [
     ["Monitoring Air PDAM"],
