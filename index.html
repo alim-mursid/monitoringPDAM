@@ -185,9 +185,11 @@
         alert("Masukkan batas liter valid (angka positif)");
         return;
       }
+      
       set(ref(db, `/${selectedUser}/settings/batasLiter`), val)
         .then(() => alert("Batas liter berhasil disimpan"))
         .catch(e => alert("Gagal simpan batas liter: " + e.message));
+      elemBatasDebit.value = "";
     }
 
     function exportToExcel() {
