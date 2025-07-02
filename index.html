@@ -118,7 +118,7 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const hargaPerLiter = 1000;
+    const hargaPerLiter = 2.7;
     let selectedUser = document.getElementById("userSelect").value;
     let chart, labels = [], debitData = [], biayaData = [];
     let monitoringRef, riwayatRef, batasRef;
@@ -131,7 +131,7 @@
           labels: [],
           datasets: [
             { label: "Debit Air (L/m)", data: [], borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.2)", yAxisID: "y", tension: 0.4, fill: true },
-            { label: "Estimasi Biaya (Rp/100)", data: [], borderColor: "#eab308", backgroundColor: "rgba(234,179,8,0.2)", yAxisID: "y1", tension: 0.4, fill: true }
+            { label: "Estimasi Biaya (Rp/2.7)", data: [], borderColor: "#eab308", backgroundColor: "rgba(234,179,8,0.2)", yAxisID: "y1", tension: 0.4, fill: true }
           ]
         },
         options: {
@@ -144,7 +144,7 @@
           scales: {
             x: { ticks: { color: "#334155" }, grid: { color: "#e2e8f0" } },
             y: { type: "linear", position: "left", title: { display: true, text: "Debit (L/m)" } },
-            y1: { type: "linear", position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Biaya (Rp/100)" } }
+            y1: { type: "linear", position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Biaya (Rp/2.7)" } }
           }
         }
       });
