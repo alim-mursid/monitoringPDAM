@@ -61,7 +61,7 @@
   </div>
   <div class="flex justify-center mb-6">
     <div id="batasLiterDisplay" class="text-center border-2 border-red-600 rounded-lg p-2">
-      <p class="text-sm font-semibold text-gray-700">🚰 Batas Total Air</p>
+      <p class="text-sm font-semibold text-gray-700">🚰 Batas Buzzer Aktif</p>
       <p id="batasLiterValue" class="text-base text-red-600 font-bold">- L</p>
     </div>
   </div>
@@ -70,10 +70,14 @@
     <canvas id="realtimeChart" height="180"></canvas>
   </div>
 
+  <!-- BAGIAN PENGATURAN DIUBAH UNTUK INPUT TOKEN MANUAL -->
   <div class="card mb-6 text-center">
-    <h2 class="text-lg font-semibold mb-3">⚙️ Pengaturan Batas Liter</h2>
-    <input type="number" id="batasDebit" placeholder="Masukkan batas liter" class="border px-3 py-2 rounded-md w-40 mr-2 focus:ring-2 focus:ring-blue-500" />
-    <button id="saveBatas" class="btn bg-blue-600 hover:bg-blue-700">💾 Simpan</button>
+    <h2 class="text-lg font-semibold mb-3">⚙️ Pengaturan Batas Buzzer (via Token)</h2>
+    <div class="flex justify-center gap-2">
+      <input type="text" id="tokenInput" placeholder="Masukkan Token Unik" class="border px-3 py-2 rounded-md w-60 focus:ring-2 focus:ring-blue-500" />
+      <button id="saveToken" class="btn bg-blue-600 hover:bg-blue-700">💾 Simpan</button>
+    </div>
+    <p class="text-xs text-gray-500 mt-2">Contoh Token: TKN15A7 (15L), TKN20B4 (20L), OFF</p>
   </div>
 
   <div class="mb-6">
@@ -121,7 +125,11 @@
     const hargaPerLiter = 2.7;
     let selectedUser = document.getElementById("userSelect").value;
     let chart, labels = [], debitData = [], biayaData = [];
-    let monitoringRef, riwayatRef, batasRef;
+    let monitoringRef, riwayatRef, buzzerTokenRef;
+    let activeLimit = 0;
+
+    // Daftar token yang dianggap valid (diperbarui)
+    const validTokens = ["TKN15A7", "TKN20B4", "OFF"];
 
     function initChart() {
       const ctx = document.getElementById("realtimeChart").getContext("2d");
@@ -167,7 +175,7 @@
       detachFirebase();
       monitoringRef = ref(db, `${selectedUser}/monitoring`);
       riwayatRef = ref(db, `${selectedUser}/riwayat`);
-      batasRef = ref(db, `${selectedUser}/settings/batasLiter`);
+      buzzerTokenRef = ref(db, `${selectedUser}/settings/buzzerToken`);
 
       onValue(monitoringRef, snap => {
         const data = snap.val();
@@ -177,11 +185,8 @@
         const biaya = data.total * hargaPerLiter;
         document.getElementById("estimasi").textContent = `Rp ${biaya.toFixed(2)}`;
 
-        const batasStr = document.getElementById("batasLiterValue").textContent;
-        const batas = parseFloat(batasStr === '-' ? '0' : batasStr);
         const alert = document.getElementById("statusAlert");
-
-        if (!isNaN(batas) && batas > 0 && data.total > batas) {
+        if (activeLimit > 0 && data.total > activeLimit) {
           alert.textContent = "⚠️ PERINGATAN: Total melebihi batas!";
           alert.className = "text-center p-3 mb-6 rounded-md text-white bg-red-600 font-semibold shadow-md";
         } else {
@@ -208,17 +213,26 @@
         }
       });
 
-      onValue(batasRef, snap => {
-        const val = snap.val();
-        document.getElementById("batasDebit").value = val || "";
-        document.getElementById("batasLiterValue").textContent = val || "-";
+      // Listener untuk token buzzer (diperbarui)
+      onValue(buzzerTokenRef, snap => {
+        const token = snap.val();
+        if (token === "TKN15A7") {
+            activeLimit = 15;
+            document.getElementById("batasLiterValue").textContent = "15 L";
+        } else if (token === "TKN20B4") {
+            activeLimit = 20;
+            document.getElementById("batasLiterValue").textContent = "20 L";
+        } else {
+            activeLimit = 0;
+            document.getElementById("batasLiterValue").textContent = "- L";
+        }
       });
     }
 
     function detachFirebase() {
       if (monitoringRef) off(monitoringRef);
       if (riwayatRef) off(riwayatRef);
-      if (batasRef) off(batasRef);
+      if (buzzerTokenRef) off(buzzerTokenRef);
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -234,12 +248,20 @@
         attachFirebase();
       });
 
-      document.getElementById("saveBatas").addEventListener("click", () => {
-        const input = document.getElementById("batasDebit");
-        const val = parseFloat(input.value);
-        if (isNaN(val)) return alert("Nilai tidak valid!");
-        set(ref(db, `${selectedUser}/settings/batasLiter`), val)
-          .then(() => input.value = "");
+      // Event listener untuk input token manual (diperbarui)
+      document.getElementById("saveToken").addEventListener("click", () => {
+        const input = document.getElementById("tokenInput");
+        const tokenValue = input.value.trim().toUpperCase();
+
+        if (validTokens.includes(tokenValue)) {
+          set(ref(db, `${selectedUser}/settings/buzzerToken`), tokenValue)
+            .then(() => {
+              alert("Token berhasil diatur!");
+              input.value = "";
+            });
+        } else {
+          alert("Token salah atau tidak valid! Gunakan token yang benar.");
+        }
       });
 
       document.getElementById("exportExcel").addEventListener("click", () => {
@@ -247,15 +269,12 @@
         const elemTotal = document.getElementById("total").innerText;
         const elemEstimasi = document.getElementById("estimasi").innerText;
         const batasLiter = document.getElementById("batasLiterValue").textContent;
-
         const tableRows = document.querySelectorAll("#riwayat-body tr");
         const riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
-
         tableRows.forEach(row => {
           const cells = Array.from(row.querySelectorAll("td")).map(cell => cell.innerText);
           riwayatData.push(cells);
         });
-
         const wsData = [
           ["Monitoring Air PDAM - " + selectedUser.toUpperCase()],
           ["Laporan dibuat pada: " + new Date().toLocaleString()],
@@ -263,11 +282,10 @@
           ["Debit Saat", elemDebit],
           ["Total Air Digunakan", elemTotal],
           ["Estimasi Biaya", elemEstimasi],
-          ["Batas Liter", batasLiter + " L"],
+          ["Batas Buzzer Aktif", batasLiter],
           [],
           ["Riwayat Penggunaan"]
         ];
-
         const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
@@ -278,7 +296,6 @@
         if (confirm("Yakin ingin hapus semua riwayat?")) {
           remove(ref(db, `${selectedUser}/riwayat`));
           set(ref(db, `${selectedUser}/settings/reset`), 0);
-
         }
       });
     });
