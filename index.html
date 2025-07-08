@@ -1,283 +1,284 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard Kuota Air</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    .card {
-      background-color: white;
-      padding: 1rem;
-      border-radius: 1rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      transition: all 0.3s ease-in-out;
-    }
-    .card:hover {
-      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-    }
-    .btn {
-      padding: 0.5rem 1.5rem;
-      border-radius: 0.5rem;
-      font-weight: 600;
-      color: white;
-      transition: background-color 0.2s;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Kontrol & Monitoring Air</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+        .stat-card {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary {
+            background-color: #3b82f6;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        /* (BARU) Tombol Ekspor */
+        .btn-success {
+            background-color: #22c55e;
+        }
+        .btn-success:hover {
+            background-color: #16a34a;
+        }
+        #riwayatTable th, #riwayatTable td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 text-gray-800 p-6 max-w-6xl mx-auto">
-  <h1 class="text-center text-3xl font-bold text-blue-700 mb-8">📊 Dashboard Kuota Air Prabayar</h1>
+<body class="bg-gray-100 text-gray-800">
 
-  <div class="flex justify-center items-center gap-2 mb-6">
-    <label for="userSelect" class="font-semibold">Pilih Pengguna:</label>
-    <select id="userSelect" class="border rounded-md px-3 py-2">
-      <option value="esp1">Pengguna 1 (ESP1)</option>
-      <option value="esp2">Pengguna 2 (ESP2)</option>
-    </select>
-  </div>
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Dashboard Monitoring Air</h1>
+            <p class="text-gray-600 mt-2">Kontrol dan pantau penggunaan air Anda secara real-time.</p>
+        </header>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-    <!-- Tampilan Utama Diubah menjadi Sisa Debit -->
-    <div class="card text-center border border-blue-400">
-      <p class="font-semibold text-gray-600">💧 Sisa Kuota Air</p>
-      <p id="sisaDebit" class="text-3xl text-blue-600 font-bold">0.00 L</p>
+        <!-- Pilihan Perangkat -->
+        <div class="card mb-6">
+            <h2 class="text-xl font-semibold mb-3">Pilih Perangkat</h2>
+            <select id="deviceSelector" class="w-full p-2 border border-gray-300 rounded-md">
+                <option value="/esp1" selected>Perangkat 1 (ESP1)</option>
+                <option value="/esp2">Perangkat 2 (ESP2)</option>
+            </select>
+        </div>
+
+        <!-- Monitoring Real-Time -->
+        <div class="mb-6">
+            <h2 class="text-2xl font-semibold mb-4 text-center">Monitoring Real-Time</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="card stat-card">
+                    <div id="sisaDebit" class="stat-value">0.00</div>
+                    <div class="stat-label">Sisa Kuota (L)</div>
+                </div>
+                <div class="card stat-card">
+                    <div id="debit" class="stat-value">0.00</div>
+                    <div class="stat-label">Laju Aliran (L/m)</div>
+                </div>
+                <div class="card stat-card">
+                    <div id="total" class="stat-value">0.00</div>
+                    <div class="stat-label">Total Penggunaan (L)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kontrol Perangkat -->
+        <div class="card mb-6">
+            <h2 class="text-xl font-semibold mb-4">Kontrol Perangkat</h2>
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Isi Ulang Kuota -->
+                <div class="flex-grow">
+                    <label for="tokenInput" class="block mb-2 font-medium">Masukkan Token Isi Ulang</label>
+                    <div class="flex">
+                        <input type="text" id="tokenInput" class="w-full p-2 border border-gray-300 rounded-l-md focus:ring-blue-500 focus:border-blue-500" placeholder="Contoh: A5L01">
+                        <button id="submitTokenBtn" class="btn btn-primary rounded-l-none">Kirim</button>
+                    </div>
+                </div>
+                <!-- (DIUBAH) Tombol Ekspor ke Excel -->
+                <div>
+                    <label class="block mb-2 font-medium text-green-700">Laporan</label>
+                    <button id="exportBtn" class="btn btn-success w-full">Ekspor ke Excel</button>
+                </div>
+            </div>
+            <div id="statusMessage" class="mt-4 text-center font-medium"></div>
+        </div>
+
+        <!-- Riwayat Penggunaan -->
+        <div class="card">
+            <h2 class="text-xl font-semibold mb-4">Riwayat Penggunaan</h2>
+            <div class="overflow-x-auto">
+                <table id="riwayatTable" class="w-full text-sm">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Laju Aliran (L/m)</th>
+                            <th>Total (L)</th>
+                            <th>Biaya (Rp)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data riwayat akan ditambahkan di sini oleh JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <div class="card text-center border border-green-400">
-      <p class="font-semibold text-gray-600">📈 Laju Aliran Saat Ini</p>
-      <p id="debit" class="text-2xl text-green-600 font-bold">0.00 L/m</p>
-    </div>
-    <div class="card text-center border border-gray-400">
-      <p class="font-semibold text-gray-600">📦 Total Penggunaan</p>
-      <p id="total" class="text-2xl text-gray-600 font-bold">0.00 L</p>
-    </div>
-  </div>
 
-  <div id="statusAlert" class="text-center p-3 mb-6 rounded-md text-white bg-green-600 font-semibold shadow-md">
-    Status: Kuota Cukup
-  </div>
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import fungsi yang diperlukan dari Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
-  <div class="card mb-6">
-    <canvas id="realtimeChart" height="180"></canvas>
-  </div>
+        // ===================================================================
+        // --- KONFIGURASI FIREBASE ANDA ---
+        // Ganti dengan konfigurasi proyek Firebase Anda sendiri
+        // ===================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAorkSRFuT1CwZtXMpJaEvmjW51a3LAse8",
+            authDomain: "monitoringairpdam-bd78d.firebaseapp.com",
+            databaseURL: "https://monitoringairpdam-bd78d-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "monitoringairpdam-bd78d",
+            storageBucket: "monitoringairpdam-bd78d.appspot.com",
+            messagingSenderId: "37456721617",
+            appId: "1:37456721617:web:c67568582d92d4719c8f61"
+        };
 
-  <!-- Pengaturan untuk memasukkan token -->
-  <div class="card mb-6 text-center">
-    <h2 class="text-lg font-semibold mb-3">⚙️ Isi Ulang Kuota (via Token)</h2>
-    <div class="flex justify-center gap-2">
-      <input type="text" id="tokenInput" placeholder="Masukkan Token Unik" class="border px-3 py-2 rounded-md w-60 focus:ring-2 focus:ring-blue-500" />
-      <button id="saveToken" class="btn bg-blue-600 hover:bg-blue-700">✅ Gunakan</button>
-    </div>
-    <p class="text-xs text-gray-500 mt-2">Contoh Token: TKN10C5, TKN15A7, TKN20B4</p>
-  </div>
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
 
-  <div class="mb-6">
-    <h2 class="text-lg font-semibold mb-2">🕑 Riwayat Penggunaan</h2>
-    <div class="overflow-auto rounded-lg shadow bg-white">
-      <table class="min-w-full text-center">
-        <thead class="bg-blue-700 text-white">
-          <tr>
-            <th class="px-4 py-2">Waktu</th>
-            <th class="px-4 py-2">Debit (L/m)</th>
-            <th class="px-4 py-2">Total (L)</th>
-            <th class="px-4 py-2">Biaya (Rp)</th>
-          </tr>
-        </thead>
-        <tbody id="riwayat-body" class="text-gray-700 text-sm"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="flex flex-col md:flex-row gap-4 mb-10">
-    <button id="exportExcel" class="btn bg-green-600 hover:bg-green-700 flex-1">📥 Ekspor Excel</button>
-    <button id="clearHistory" class="btn bg-red-600 hover:bg-red-700 flex-1">🗑️ Reset Penggunaan</button>
-  </div>
-
-  <footer class="text-center text-sm text-gray-500">
-    &copy; 2025 PDAM Kuota Prabayar
-  </footer>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, remove, off } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAorkSRFuT1CwZtXMpJaEvmjW51a3LAse8",
-      authDomain: "monitoringairpdam-bd78d.firebaseapp.com",
-      databaseURL: "https://monitoringairpdam-bd78d-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "monitoringairpdam-bd78d",
-      storageBucket: "monitoringairpdam-bd78d.appspot.com",
-      messagingSenderId: "1050691156280",
-      appId: "1:1050691156280:web:8c5bc1da03e15dc69069cd"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const hargaPerLiter = 2.7;
-    let selectedUser = document.getElementById("userSelect").value;
-    let chart, labels = [], debitData = [];
-    let monitoringRef, riwayatRef;
-
-    // Daftar token yang valid
-    const validTokens = ["TKN10C5", "TKN15A7", "TKN20B4"];
-
-    function initChart() {
-      const ctx = document.getElementById("realtimeChart").getContext("2d");
-      chart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            { label: "Laju Aliran (L/m)", data: [], borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.2)", tension: 0.4, fill: true }
-          ]
-        },
-        options: {
-          responsive: true,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            title: { display: true, text: "Grafik Realtime Laju Aliran", font: { size: 16 } }
-          },
-          scales: {
-            x: { ticks: { color: "#334155" }, grid: { color: "#e2e8f0" } },
-            y: { type: "linear", position: "left", title: { display: true, text: "L/m" } }
-          }
-        }
-      });
-    }
-
-    function updateChart(flowRate) {
-      if (!chart) return;
-      const now = new Date().toLocaleTimeString();
-      labels.push(now);
-      debitData.push(flowRate);
-      if (labels.length > 20) { labels.shift(); debitData.shift(); }
-      chart.data.labels = labels;
-      chart.data.datasets[0].data = debitData;
-      chart.update();
-    }
-
-    function attachFirebase() {
-      detachFirebase();
-      monitoringRef = ref(db, `${selectedUser}/monitoring`);
-      riwayatRef = ref(db, `${selectedUser}/riwayat`);
-
-      onValue(monitoringRef, snap => {
-        const data = snap.val();
-        if (!data) return;
+        // --- ELEMEN HTML ---
+        const deviceSelector = document.getElementById('deviceSelector');
+        const sisaDebitEl = document.getElementById('sisaDebit');
+        const debitEl = document.getElementById('debit');
+        const totalEl = document.getElementById('total');
+        const tokenInput = document.getElementById('tokenInput');
+        const submitTokenBtn = document.getElementById('submitTokenBtn');
+        const exportBtn = document.getElementById('exportBtn'); // (DIUBAH) Menggantikan resetBtn
+        const statusMessage = document.getElementById('statusMessage');
+        const riwayatTableBody = document.querySelector('#riwayatTable tbody');
         
-        // Membaca data dari path yang baru
-        const sisa = data.sisaDebit || 0;
-        const total = data.total || 0;
-        const debit = data.debit || 0;
+        let currentDevicePath = deviceSelector.value;
+        let monitoringRef, riwayatRef;
 
-        document.getElementById("sisaDebit").textContent = `${sisa.toFixed(2)} L`;
-        document.getElementById("total").textContent = `${total.toFixed(2)} L`;
-        document.getElementById("debit").textContent = `${debit.toFixed(2)} L/m`;
-        
-        const biaya = total * hargaPerLiter;
-        document.getElementById("estimasi").textContent = `Rp ${biaya.toFixed(2)}`;
-
-        const alert = document.getElementById("statusAlert");
-        if (sisa <= 0) {
-          alert.textContent = "❌ KUOTA HABIS! Silakan isi ulang.";
-          alert.className = "text-center p-3 mb-6 rounded-md text-white bg-red-600 font-semibold shadow-md";
-        } else if (sisa <= 10) {
-          alert.textContent = "⚠️ PERINGATAN: Kuota menipis!";
-          alert.className = "text-center p-3 mb-6 rounded-md text-white bg-yellow-500 font-semibold shadow-md";
-        } else {
-          alert.textContent = "✅ Status: Kuota Cukup";
-          alert.className = "text-center p-3 mb-6 rounded-md text-white bg-green-600 font-semibold shadow-md";
+        // Fungsi untuk menampilkan pesan status dan menghilangkannya setelah beberapa detik
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.className = isError ? 'mt-4 text-center font-medium text-red-600' : 'mt-4 text-center font-medium text-green-600';
+            setTimeout(() => {
+                statusMessage.textContent = '';
+            }, 4000);
         }
 
-        updateChart(debit);
-      });
+        // --- FUNGSI UTAMA UNTUK MENDENGARKAN DATA ---
+        function setupListeners(devicePath) {
+            // Hapus listener lama jika ada
+            if (monitoringRef) onValue(monitoringRef, () => {}, { onlyOnce: true });
+            if (riwayatRef) onValue(riwayatRef, () => {}, { onlyOnce: true });
 
-      onValue(riwayatRef, snap => {
-        const tbody = document.getElementById("riwayat-body");
-        tbody.innerHTML = "";
-        if (!snap.exists()) return;
-        const rows = Object.values(snap.val()).sort((a, b) => new Date(b.waktu) - new Date(a.waktu)).slice(0, 30);
-        for (const row of rows) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td class="border px-2 py-1">${row.waktu}</td>
-            <td class="border px-2 py-1">${row.debit.toFixed(2)}</td>
-            <td class="border px-2 py-1">${row.total.toFixed(2)}</td>
-            <td class="border px-2 py-1">Rp ${(row.biaya).toFixed(2)}</td>`;
-          tbody.appendChild(tr);
-        }
-      });
-    }
+            // Setup listener baru
+            monitoringRef = ref(db, `${devicePath}/monitoring`);
+            riwayatRef = ref(db, `${devicePath}/riwayat`);
 
-    function detachFirebase() {
-      if (monitoringRef) off(monitoringRef);
-      if (riwayatRef) off(riwayatRef);
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      initChart();
-      attachFirebase();
-
-      document.getElementById("userSelect").addEventListener("change", e => {
-        selectedUser = e.target.value;
-        labels = []; debitData = [];
-        chart.data.labels = [];
-        chart.data.datasets.forEach(ds => ds.data = []);
-        chart.update();
-        attachFirebase();
-      });
-
-      document.getElementById("saveToken").addEventListener("click", () => {
-        const input = document.getElementById("tokenInput");
-        const tokenValue = input.value.trim().toUpperCase();
-
-        if (validTokens.includes(tokenValue)) {
-          set(ref(db, `${selectedUser}/settings/tokenInput`), tokenValue)
-            .then(() => {
-              alert("Token diterima! Kuota akan ditambahkan.");
-              input.value = "";
+            // 1. Listener untuk data monitoring (sisaDebit, debit, total)
+            onValue(monitoringRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    sisaDebitEl.textContent = parseFloat(data.sisaDebit || 0).toFixed(2);
+                    debitEl.textContent = parseFloat(data.debit || 0).toFixed(2);
+                    totalEl.textContent = parseFloat(data.total || 0).toFixed(2);
+                }
             });
-        } else {
-          alert("Token salah atau tidak valid!");
-        }
-      });
 
-      document.getElementById("exportExcel").addEventListener("click", () => {
-        const sisaDebit = document.getElementById("sisaDebit").innerText;
-        const total = document.getElementById("total").innerText;
-        const estimasi = document.getElementById("estimasi").innerText;
-        const tableRows = document.querySelectorAll("#riwayat-body tr");
-        const riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
-        tableRows.forEach(row => {
-          const cells = Array.from(row.querySelectorAll("td")).map(cell => cell.innerText);
-          riwayatData.push(cells);
+            // 2. Listener untuk data riwayat
+            riwayatTableBody.innerHTML = ''; // Kosongkan tabel sebelum mengisi
+            onValue(riwayatRef, (snapshot) => {
+                riwayatTableBody.innerHTML = ''; // Kosongkan lagi saat ada update
+                snapshot.forEach((childSnapshot) => {
+                    const log = childSnapshot.val();
+                    const newRow = document.createElement('tr');
+                    newRow.className = 'border-b hover:bg-gray-50';
+                    newRow.innerHTML = `
+                        <td>${new Date(log.waktu).toLocaleString('id-ID')}</td>
+                        <td>${parseFloat(log.debit || 0).toFixed(2)}</td>
+                        <td>${parseFloat(log.total || 0).toFixed(2)}</td>
+                        <td>Rp ${parseInt(log.biaya || 0).toLocaleString('id-ID')}</td>
+                    `;
+                    riwayatTableBody.prepend(newRow); // Prepend agar data terbaru di atas
+                });
+            });
+        }
+
+        // --- EVENT HANDLERS ---
+
+        // Ganti perangkat saat pilihan diubah
+        deviceSelector.addEventListener('change', (e) => {
+            currentDevicePath = e.target.value;
+            console.log(`Beralih ke perangkat: ${currentDevicePath}`);
+            setupListeners(currentDevicePath);
         });
-        const wsData = [
-          ["Laporan Kuota Air - " + selectedUser.toUpperCase()],
-          ["Laporan dibuat pada: " + new Date().toLocaleString()],
-          [],
-          ["Sisa Kuota Air", sisaDebit],
-          ["Total Penggunaan", total],
-          ["Estimasi Biaya", estimasi],
-          [],
-          ["Riwayat Penggunaan"]
-        ];
-        const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data Kuota");
-        XLSX.writeFile(wb, "Laporan_Kuota_Air.xlsx");
-      });
 
-      document.getElementById("clearHistory").addEventListener("click", () => {
-        if (confirm("Yakin ingin reset semua penggunaan dan kuota?")) {
-          set(ref(db, `${selectedUser}/settings/reset`), 0);
-        }
-      });
-    });
-  </script>
+        // Tombol Kirim Token
+        submitTokenBtn.addEventListener('click', () => {
+            const token = tokenInput.value.trim();
+            if (!token) {
+                showStatus("Token tidak boleh kosong!", true);
+                return;
+            }
+            const tokenRef = ref(db, `${currentDevicePath}/settings/tokenInput`);
+            set(tokenRef, token)
+                .then(() => {
+                    showStatus("Token berhasil dikirim ke perangkat!");
+                    tokenInput.value = '';
+                })
+                .catch((error) => {
+                    showStatus(`Gagal mengirim token: ${error.message}`, true);
+                });
+        });
+
+        // (DIUBAH) Tombol Ekspor ke Excel
+        exportBtn.addEventListener('click', () => {
+            // 1. Ambil data yang diperlukan dari tampilan
+            const sisaKuota = sisaDebitEl.textContent;
+            const totalPenggunaan = totalEl.textContent;
+            const perangkat = deviceSelector.options[deviceSelector.selectedIndex].text;
+            
+            // 2. Siapkan konten CSV (Comma Separated Values)
+            let csvContent = "Perangkat,Sisa Kuota (L),Total Penggunaan (L)\n"; // Header
+            csvContent += `${perangkat},${sisaKuota},${totalPenggunaan}\n`; // Baris data
+
+            // 3. Buat file dan picu unduhan
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            const fileName = `laporan_air_${perangkat.replace(/ /g, '_')}.csv`;
+            link.setAttribute("download", fileName);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showStatus("Laporan berhasil diekspor!");
+        });
+
+
+        // --- INISIALISASI ---
+        // Setup listener untuk perangkat default saat halaman dimuat
+        setupListeners(currentDevicePath);
+
+    </script>
 </body>
 </html>
