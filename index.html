@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard Monitoring Air</title>
+  <title>Dashboard Kuota Air</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
@@ -31,7 +31,7 @@
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 p-6 max-w-6xl mx-auto">
-  <h1 class="text-center text-3xl font-bold text-blue-700 mb-8">📊 Monitoring Air Multi Pengguna</h1>
+  <h1 class="text-center text-3xl font-bold text-blue-700 mb-8">📊 Dashboard Kuota Air Prabayar</h1>
 
   <div class="flex justify-center items-center gap-2 mb-6">
     <label for="userSelect" class="font-semibold">Pilih Pengguna:</label>
@@ -42,42 +42,37 @@
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-    <div class="card text-center border border-emerald-400">
-      <p class="font-semibold text-gray-600">💧 Debit Air Saat Ini</p>
-      <p id="debit" class="text-2xl text-emerald-600 font-bold">0.00 L/m</p>
-    </div>
+    <!-- Tampilan Utama Diubah menjadi Sisa Debit -->
     <div class="card text-center border border-blue-400">
-      <p class="font-semibold text-gray-600">📦 Total Air Digunakan</p>
-      <p id="total" class="text-2xl text-blue-600 font-bold">0.00 L</p>
+      <p class="font-semibold text-gray-600">💧 Sisa Kuota Air</p>
+      <p id="sisaDebit" class="text-3xl text-blue-600 font-bold">0.00 L</p>
     </div>
-    <div class="card text-center border border-yellow-400">
-      <p class="font-semibold text-gray-600">💸 Estimasi Biaya</p>
-      <p id="estimasi" class="text-2xl text-yellow-600 font-bold">Rp 0.00</p>
+    <div class="card text-center border border-green-400">
+      <p class="font-semibold text-gray-600">📈 Laju Aliran Saat Ini</p>
+      <p id="debit" class="text-2xl text-green-600 font-bold">0.00 L/m</p>
+    </div>
+    <div class="card text-center border border-gray-400">
+      <p class="font-semibold text-gray-600">📦 Total Penggunaan</p>
+      <p id="total" class="text-2xl text-gray-600 font-bold">0.00 L</p>
     </div>
   </div>
 
-  <div id="statusAlert" class="text-center p-3 mb-2 rounded-md text-white bg-green-600 font-semibold shadow-md">
-    Status: Normal
-  </div>
-  <div class="flex justify-center mb-6">
-    <div id="batasLiterDisplay" class="text-center border-2 border-red-600 rounded-lg p-2">
-      <p class="text-sm font-semibold text-gray-700">🚰 Batas Buzzer Aktif</p>
-      <p id="batasLiterValue" class="text-base text-red-600 font-bold">- L</p>
-    </div>
+  <div id="statusAlert" class="text-center p-3 mb-6 rounded-md text-white bg-green-600 font-semibold shadow-md">
+    Status: Kuota Cukup
   </div>
 
   <div class="card mb-6">
     <canvas id="realtimeChart" height="180"></canvas>
   </div>
 
-  <!-- BAGIAN PENGATURAN DIUBAH UNTUK INPUT TOKEN MANUAL -->
+  <!-- Pengaturan untuk memasukkan token -->
   <div class="card mb-6 text-center">
-    <h2 class="text-lg font-semibold mb-3">⚙️ Pengaturan Batas Buzzer (via Token)</h2>
+    <h2 class="text-lg font-semibold mb-3">⚙️ Isi Ulang Kuota (via Token)</h2>
     <div class="flex justify-center gap-2">
       <input type="text" id="tokenInput" placeholder="Masukkan Token Unik" class="border px-3 py-2 rounded-md w-60 focus:ring-2 focus:ring-blue-500" />
-      <button id="saveToken" class="btn bg-blue-600 hover:bg-blue-700">💾 Simpan</button>
+      <button id="saveToken" class="btn bg-blue-600 hover:bg-blue-700">✅ Gunakan</button>
     </div>
-    <p class="text-xs text-gray-500 mt-2">Contoh Token: TKN15A7 (15L), TKN20B4 (20L), OFF</p>
+    <p class="text-xs text-gray-500 mt-2">Contoh Token: TKN10C5, TKN15A7, TKN20B4</p>
   </div>
 
   <div class="mb-6">
@@ -99,11 +94,11 @@
 
   <div class="flex flex-col md:flex-row gap-4 mb-10">
     <button id="exportExcel" class="btn bg-green-600 hover:bg-green-700 flex-1">📥 Ekspor Excel</button>
-    <button id="clearHistory" class="btn bg-red-600 hover:bg-red-700 flex-1">🗑️ Hapus Riwayat</button>
+    <button id="clearHistory" class="btn bg-red-600 hover:bg-red-700 flex-1">🗑️ Reset Penggunaan</button>
   </div>
 
   <footer class="text-center text-sm text-gray-500">
-    &copy; 2025 PDAM Monitoring System
+    &copy; 2025 PDAM Kuota Prabayar
   </footer>
 
   <script type="module">
@@ -124,12 +119,11 @@
     const db = getDatabase(app);
     const hargaPerLiter = 2.7;
     let selectedUser = document.getElementById("userSelect").value;
-    let chart, labels = [], debitData = [], biayaData = [];
-    let monitoringRef, riwayatRef, buzzerTokenRef;
-    let activeLimit = 0;
+    let chart, labels = [], debitData = [];
+    let monitoringRef, riwayatRef;
 
-    // Daftar token yang dianggap valid (diperbarui)
-    const validTokens = ["TKN15A7", "TKN20B4", "OFF"];
+    // Daftar token yang valid
+    const validTokens = ["TKN10C5", "TKN15A7", "TKN20B4"];
 
     function initChart() {
       const ctx = document.getElementById("realtimeChart").getContext("2d");
@@ -138,36 +132,31 @@
         data: {
           labels: [],
           datasets: [
-            { label: "Debit Air (L/m)", data: [], borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.2)", yAxisID: "y", tension: 0.4, fill: true },
-            { label: "Estimasi Biaya (Rp/2.7)", data: [], borderColor: "#eab308", backgroundColor: "rgba(234,179,8,0.2)", yAxisID: "y1", tension: 0.4, fill: true }
+            { label: "Laju Aliran (L/m)", data: [], borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.2)", tension: 0.4, fill: true }
           ]
         },
         options: {
           responsive: true,
           interaction: { mode: "index", intersect: false },
-          stacked: false,
           plugins: {
-            title: { display: true, text: "Grafik Realtime Debit & Biaya", font: { size: 16 } }
+            title: { display: true, text: "Grafik Realtime Laju Aliran", font: { size: 16 } }
           },
           scales: {
             x: { ticks: { color: "#334155" }, grid: { color: "#e2e8f0" } },
-            y: { type: "linear", position: "left", title: { display: true, text: "Debit (L/m)" } },
-            y1: { type: "linear", position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Biaya (Rp/2.7)" } }
+            y: { type: "linear", position: "left", title: { display: true, text: "L/m" } }
           }
         }
       });
     }
 
-    function updateChart(data) {
+    function updateChart(flowRate) {
       if (!chart) return;
       const now = new Date().toLocaleTimeString();
       labels.push(now);
-      debitData.push(data.debit);
-      biayaData.push((data.total * hargaPerLiter) / 100);
-      if (labels.length > 20) { labels.shift(); debitData.shift(); biayaData.shift(); }
+      debitData.push(flowRate);
+      if (labels.length > 20) { labels.shift(); debitData.shift(); }
       chart.data.labels = labels;
       chart.data.datasets[0].data = debitData;
-      chart.data.datasets[1].data = biayaData;
       chart.update();
     }
 
@@ -175,26 +164,36 @@
       detachFirebase();
       monitoringRef = ref(db, `${selectedUser}/monitoring`);
       riwayatRef = ref(db, `${selectedUser}/riwayat`);
-      buzzerTokenRef = ref(db, `${selectedUser}/settings/buzzerToken`);
 
       onValue(monitoringRef, snap => {
         const data = snap.val();
         if (!data) return;
-        document.getElementById("debit").textContent = `${data.debit.toFixed(2)} L/m`;
-        document.getElementById("total").textContent = `${data.total.toFixed(2)} L`;
-        const biaya = data.total * hargaPerLiter;
+        
+        // Membaca data dari path yang baru
+        const sisa = data.sisaDebit || 0;
+        const total = data.total || 0;
+        const debit = data.debit || 0;
+
+        document.getElementById("sisaDebit").textContent = `${sisa.toFixed(2)} L`;
+        document.getElementById("total").textContent = `${total.toFixed(2)} L`;
+        document.getElementById("debit").textContent = `${debit.toFixed(2)} L/m`;
+        
+        const biaya = total * hargaPerLiter;
         document.getElementById("estimasi").textContent = `Rp ${biaya.toFixed(2)}`;
 
         const alert = document.getElementById("statusAlert");
-        if (activeLimit > 0 && data.total > activeLimit) {
-          alert.textContent = "⚠️ PERINGATAN: Total melebihi batas!";
+        if (sisa <= 0) {
+          alert.textContent = "❌ KUOTA HABIS! Silakan isi ulang.";
           alert.className = "text-center p-3 mb-6 rounded-md text-white bg-red-600 font-semibold shadow-md";
+        } else if (sisa <= 10) {
+          alert.textContent = "⚠️ PERINGATAN: Kuota menipis!";
+          alert.className = "text-center p-3 mb-6 rounded-md text-white bg-yellow-500 font-semibold shadow-md";
         } else {
-          alert.textContent = "✅ Status: Normal";
+          alert.textContent = "✅ Status: Kuota Cukup";
           alert.className = "text-center p-3 mb-6 rounded-md text-white bg-green-600 font-semibold shadow-md";
         }
 
-        updateChart(data);
+        updateChart(debit);
       });
 
       onValue(riwayatRef, snap => {
@@ -208,23 +207,8 @@
             <td class="border px-2 py-1">${row.waktu}</td>
             <td class="border px-2 py-1">${row.debit.toFixed(2)}</td>
             <td class="border px-2 py-1">${row.total.toFixed(2)}</td>
-            <td class="border px-2 py-1">Rp ${(row.total * 2.7).toFixed(2)}</td>`;
+            <td class="border px-2 py-1">Rp ${(row.biaya).toFixed(2)}</td>`;
           tbody.appendChild(tr);
-        }
-      });
-
-      // Listener untuk token buzzer (diperbarui)
-      onValue(buzzerTokenRef, snap => {
-        const token = snap.val();
-        if (token === "TKN15A7") {
-            activeLimit = 15;
-            document.getElementById("batasLiterValue").textContent = "15 L";
-        } else if (token === "TKN20B4") {
-            activeLimit = 20;
-            document.getElementById("batasLiterValue").textContent = "20 L";
-        } else {
-            activeLimit = 0;
-            document.getElementById("batasLiterValue").textContent = "- L";
         }
       });
     }
@@ -232,7 +216,6 @@
     function detachFirebase() {
       if (monitoringRef) off(monitoringRef);
       if (riwayatRef) off(riwayatRef);
-      if (buzzerTokenRef) off(buzzerTokenRef);
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -241,34 +224,32 @@
 
       document.getElementById("userSelect").addEventListener("change", e => {
         selectedUser = e.target.value;
-        labels = []; debitData = []; biayaData = [];
+        labels = []; debitData = [];
         chart.data.labels = [];
         chart.data.datasets.forEach(ds => ds.data = []);
         chart.update();
         attachFirebase();
       });
 
-      // Event listener untuk input token manual (diperbarui)
       document.getElementById("saveToken").addEventListener("click", () => {
         const input = document.getElementById("tokenInput");
         const tokenValue = input.value.trim().toUpperCase();
 
         if (validTokens.includes(tokenValue)) {
-          set(ref(db, `${selectedUser}/settings/buzzerToken`), tokenValue)
+          set(ref(db, `${selectedUser}/settings/tokenInput`), tokenValue)
             .then(() => {
-              alert("Token berhasil diatur!");
+              alert("Token diterima! Kuota akan ditambahkan.");
               input.value = "";
             });
         } else {
-          alert("Token salah atau tidak valid! Gunakan token yang benar.");
+          alert("Token salah atau tidak valid!");
         }
       });
 
       document.getElementById("exportExcel").addEventListener("click", () => {
-        const elemDebit = document.getElementById("debit").innerText;
-        const elemTotal = document.getElementById("total").innerText;
-        const elemEstimasi = document.getElementById("estimasi").innerText;
-        const batasLiter = document.getElementById("batasLiterValue").textContent;
+        const sisaDebit = document.getElementById("sisaDebit").innerText;
+        const total = document.getElementById("total").innerText;
+        const estimasi = document.getElementById("estimasi").innerText;
         const tableRows = document.querySelectorAll("#riwayat-body tr");
         const riwayatData = [["Waktu", "Debit (L/m)", "Total (L)", "Biaya (Rp)"]];
         tableRows.forEach(row => {
@@ -276,25 +257,23 @@
           riwayatData.push(cells);
         });
         const wsData = [
-          ["Monitoring Air PDAM - " + selectedUser.toUpperCase()],
+          ["Laporan Kuota Air - " + selectedUser.toUpperCase()],
           ["Laporan dibuat pada: " + new Date().toLocaleString()],
           [],
-          ["Debit Saat", elemDebit],
-          ["Total Air Digunakan", elemTotal],
-          ["Estimasi Biaya", elemEstimasi],
-          ["Batas Buzzer Aktif", batasLiter],
+          ["Sisa Kuota Air", sisaDebit],
+          ["Total Penggunaan", total],
+          ["Estimasi Biaya", estimasi],
           [],
           ["Riwayat Penggunaan"]
         ];
         const ws = XLSX.utils.aoa_to_sheet([...wsData, ...riwayatData]);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data Monitoring");
-        XLSX.writeFile(wb, "Monitoring_Air_PDAM.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Data Kuota");
+        XLSX.writeFile(wb, "Laporan_Kuota_Air.xlsx");
       });
 
       document.getElementById("clearHistory").addEventListener("click", () => {
-        if (confirm("Yakin ingin hapus semua riwayat?")) {
-          remove(ref(db, `${selectedUser}/riwayat`));
+        if (confirm("Yakin ingin reset semua penggunaan dan kuota?")) {
           set(ref(db, `${selectedUser}/settings/reset`), 0);
         }
       });
