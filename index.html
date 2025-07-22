@@ -12,7 +12,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
+            background-color: #f0f9ff; /* Light blue-gray background */
         }
         .chart-container {
             position: relative;
@@ -22,6 +22,13 @@
         }
         .toast {
             transition: opacity 0.5s, transform 0.5s;
+        }
+        .stat-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
         }
     </style>
 </head>
@@ -35,12 +42,12 @@
 
         <header class="text-center mb-8 md:mb-12">
             <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Dashboard Monitoring Air</h1>
-            <p class="text-slate-500 mt-2">Kontrol dan pantau penggunaan air Anda secara real-time.</p>
+            <p class="text-slate-600 mt-2">Kontrol dan pantau penggunaan air Anda secara real-time.</p>
         </header>
 
-        <section class="mb-8 p-6 bg-white rounded-xl shadow-sm border border-slate-200">
-            <label for="deviceSelector" class="block text-sm font-medium text-slate-600 mb-2">Pilih Perangkat</label>
-            <select id="deviceSelector" class="w-full md:w-1/3 p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition">
+        <section class="mb-8 p-6 bg-white rounded-xl shadow-md border border-slate-200">
+            <label for="deviceSelector" class="block text-sm font-medium text-slate-700 mb-2">Pilih Perangkat</label>
+            <select id="deviceSelector" class="w-full md:w-1/3 p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition">
                 <option value="/esp1" selected>Perangkat 1 (ESP1)</option>
                 <option value="/esp2">Perangkat 2 (ESP2)</option>
             </select>
@@ -49,24 +56,49 @@
         <section id="monitoring-real-time" class="mb-8">
             <h2 class="text-2xl font-semibold text-slate-800 mb-6">Monitoring Real-Time</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center">
-                    <h3 class="text-slate-500 font-medium mb-2">Sisa Kuota (L)</h3>
-                    <p id="sisaKuota" class="text-5xl font-bold text-sky-600">0.00</p>
+                
+                <div class="stat-card bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center">
+                    <div class="bg-teal-100 p-4 rounded-full mr-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 7a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                            <path d="M10 3a7 7 0 100 14 7 7 0 000-14zM2.472 8.528a.75.75 0 01.976-.032l1.23 1.025a.75.75 0 01-.944 1.164l-1.23-1.025a.75.75 0 01-.032-.976zm14.084.15a.75.75 0 00-.944-1.164l-1.23 1.025a.75.75 0 10.944 1.164l1.23-1.025z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-slate-500 font-medium mb-1">Sisa Kuota (L)</h3>
+                        <p id="sisaKuota" class="text-4xl font-bold text-teal-600">0.00</p>
+                    </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center">
-                    <h3 class="text-slate-500 font-medium mb-2">Laju Aliran (L/m)</h3>
-                    <p id="lajuAliran" class="text-5xl font-bold text-slate-900">0.00</p>
+
+                <div class="stat-card bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center">
+                     <div class="bg-sky-100 p-4 rounded-full mr-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-slate-500 font-medium mb-1">Laju Aliran (L/m)</h3>
+                        <p id="lajuAliran" class="text-4xl font-bold text-slate-900">0.00</p>
+                    </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 text-center">
-                    <h3 class="text-slate-500 font-medium mb-2">Total Penggunaan (L)</h3>
-                    <p id="totalPenggunaan" class="text-5xl font-bold text-slate-900">0.00</p>
+
+                <div class="stat-card bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center">
+                     <div class="bg-indigo-100 p-4 rounded-full mr-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-slate-500 font-medium mb-1">Total Penggunaan (L)</h3>
+                        <p id="totalPenggunaan" class="text-4xl font-bold text-slate-900">0.00</p>
+                    </div>
                 </div>
             </div>
         </section>
         
         <section id="riwayat-penggunaan" class="mb-8">
             <h2 class="text-2xl font-semibold text-slate-800 mb-6">Riwayat Penggunaan Air</h2>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
                  <div class="chart-container">
                     <canvas id="usageChart"></canvas>
                 </div>
@@ -76,17 +108,27 @@
         <section id="kontrol-dan-laporan">
              <h2 class="text-2xl font-semibold text-slate-800 mb-6">Kontrol dan Laporan</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
                     <h3 class="font-semibold text-lg mb-4">Isi Ulang Kuota</h3>
                     <div class="flex flex-col sm:flex-row gap-3">
-                        <input type="text" id="tokenInput" placeholder="Contoh: A5L01" class="flex-grow p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition">
-                        <button id="sendTokenBtn" class="bg-sky-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-sky-700 transition-colors shadow-sm">Kirim</button>
+                        <input type="text" id="tokenInput" placeholder="Contoh: A5L01" class="flex-grow p-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition">
+                        <button id="sendTokenBtn" class="bg-teal-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-teal-700 transition-colors shadow-sm flex items-center justify-center">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                            </svg>
+                            Kirim
+                        </button>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
                      <h3 class="font-semibold text-lg mb-4">Laporan</h3>
                      <p class="text-slate-500 mb-4">Unduh data monitoring saat ini dalam format .csv.</p>
-                     <button id="exportBtn" class="w-full bg-emerald-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">Ekspor ke Excel</button>
+                     <button id="exportBtn" class="w-full bg-emerald-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                         Ekspor ke Excel
+                     </button>
                 </div>
             </div>
         </section>
@@ -123,7 +165,6 @@
         let usageChartInstance = null;
         let currentDevicePath = deviceSelector.value;
 
-        // (REVISI) Variabel untuk menyimpan fungsi 'unsubscribe' dari listener
         let unsubscribeMonitoring = () => {};
         let unsubscribeRiwayat = () => {};
 
@@ -135,15 +176,19 @@
             const labels = [];
             const dataPoints = [];
             if (riwayatData) {
-                // Mengubah objek riwayat menjadi array untuk diurutkan
                 const sortedRiwayat = Object.entries(riwayatData).sort((a, b) => new Date(a[1].waktu) - new Date(b[1].waktu));
                 sortedRiwayat.forEach(([key, value]) => {
-                    labels.push(new Date(value.waktu).toLocaleTimeString('id-ID'));
+                    const date = new Date(value.waktu);
+                    labels.push(date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
                     dataPoints.push(value.total);
                 });
             }
 
             const ctx = chartCanvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+            gradient.addColorStop(0, 'rgba(13, 148, 136, 0.5)');
+            gradient.addColorStop(1, 'rgba(13, 148, 136, 0.05)');
+
             usageChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -151,32 +196,72 @@
                     datasets: [{
                         label: 'Total Penggunaan (L)',
                         data: dataPoints,
-                        borderColor: 'rgb(2, 132, 199)',
-                        backgroundColor: 'rgba(2, 132, 199, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.3,
+                        borderColor: 'rgb(13, 148, 136)',
+                        backgroundColor: gradient,
+                        borderWidth: 2.5,
+                        tension: 0.4,
                         fill: true,
+                        pointBackgroundColor: 'rgb(13, 148, 136)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(13, 148, 136)',
+                        pointRadius: 4,
+                        pointHoverRadius: 7
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: false, title: { display: true, text: 'Volume (L)' } } }
+                    scales: { 
+                        y: { 
+                            beginAtZero: false, 
+                            title: { 
+                                display: true, 
+                                text: 'Volume (L)',
+                                font: { size: 14 }
+                            },
+                            grid: { color: '#e2e8f0' }
+                        },
+                        x: {
+                             grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: '#0f172a',
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 12 },
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(2) + ' L';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    }
                 }
             });
         }
 
-        // (REVISI) Fungsi setupListeners yang telah diperbaiki
         function setupListeners(devicePath) {
-            // 1. Hentikan listener lama sebelum membuat yang baru
             unsubscribeMonitoring();
             unsubscribeRiwayat();
 
-            // 2. Tentukan referensi path yang baru
             const monitoringRef = ref(db, `${devicePath}/monitoring`);
             const riwayatRef = ref(db, `${devicePath}/riwayat`);
 
-            // 3. Pasang listener baru dan simpan fungsi 'unsubscribe'-nya
             unsubscribeMonitoring = onValue(monitoringRef, (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -244,7 +329,6 @@
             showToast('Laporan berhasil diunduh.');
         });
 
-        // Inisialisasi listener untuk perangkat pertama saat halaman dimuat
         setupListeners(currentDevicePath);
     </script>
 </body>
