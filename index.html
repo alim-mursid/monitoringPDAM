@@ -97,7 +97,7 @@
         </section>
         
         <section id="riwayat-penggunaan" class="mb-8">
-            <h2 class="text-2xl font-semibold text-slate-800 mb-6">Konsumsi Air Harian</h2>
+            <h2 class="text-2xl font-semibold text-slate-800 mb-6">Riwayat Penggunaan Air</h2>
             <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
                  <div class="chart-container">
                     <canvas id="usageChart"></canvas>
@@ -168,47 +168,45 @@
         let unsubscribeMonitoring = () => {};
         let unsubscribeRiwayat = () => {};
 
-        // (DIUBAH) Fungsi untuk membuat grafik batang konsumsi harian
         function createOrUpdateChart(riwayatData) {
             if (usageChartInstance) {
                 usageChartInstance.destroy();
             }
 
-            const dailyConsumption = {};
+            const labels = [];
+            const dataPoints = [];
             if (riwayatData) {
-                const sortedRiwayat = Object.values(riwayatData).sort((a, b) => new Date(a.waktu) - new Date(b.waktu));
-                
-                let lastTotal = 0;
-                sortedRiwayat.forEach(log => {
-                    const date = new Date(log.waktu).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-                    let currentTotal = log.total || 0;
-                    
-                    if (currentTotal < lastTotal) { // Mendeteksi reset
-                        dailyConsumption[date] = (dailyConsumption[date] || 0) + currentTotal;
-                    } else {
-                        let consumptionSinceLast = currentTotal - lastTotal;
-                        dailyConsumption[date] = (dailyConsumption[date] || 0) + consumptionSinceLast;
-                    }
-                    lastTotal = currentTotal;
+                const sortedRiwayat = Object.entries(riwayatData).sort((a, b) => new Date(a[1].waktu) - new Date(b[1].waktu));
+                sortedRiwayat.forEach(([key, value]) => {
+                    const date = new Date(value.waktu);
+                    labels.push(date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }));
+                    dataPoints.push(value.total);
                 });
             }
 
-            const labels = Object.keys(dailyConsumption);
-            const dataPoints = Object.values(dailyConsumption);
-
             const ctx = chartCanvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+            gradient.addColorStop(0, 'rgba(13, 148, 136, 0.5)');
+            gradient.addColorStop(1, 'rgba(13, 148, 136, 0.05)');
+
             usageChartInstance = new Chart(ctx, {
-                type: 'bar', // Mengubah tipe grafik menjadi 'bar'
+                type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Konsumsi Harian (L)',
+                        label: 'Total Penggunaan (L)',
                         data: dataPoints,
-                        backgroundColor: 'rgba(13, 148, 136, 0.6)',
                         borderColor: 'rgb(13, 148, 136)',
-                        borderWidth: 2,
-                        borderRadius: 5,
-                        hoverBackgroundColor: 'rgba(13, 148, 136, 0.8)'
+                        backgroundColor: gradient,
+                        borderWidth: 2.5,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: 'rgb(13, 148, 136)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(13, 148, 136)',
+                        pointRadius: 4,
+                        pointHoverRadius: 7
                     }]
                 },
                 options: {
@@ -216,7 +214,7 @@
                     maintainAspectRatio: false,
                     scales: { 
                         y: { 
-                            beginAtZero: true, 
+                            beginAtZero: false, 
                             title: { 
                                 display: true, 
                                 text: 'Volume (L)',
@@ -248,6 +246,10 @@
                                 }
                             }
                         }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
                     }
                 }
             });
@@ -313,23 +315,13 @@
 
         exportBtn.addEventListener('click', () => {
             const deviceName = deviceSelector.options[deviceSelector.selectedIndex].text;
-            const now = new Date();
-            const reportDate = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-            const reportTime = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
-            let csvContent = `"Laporan Status Penggunaan Air"\n\n`;
-            csvContent += `"Perangkat:", "${deviceName}"\n`;
-            csvContent += `"Waktu Laporan:", "${reportDate} ${reportTime}"\n\n`;
-            csvContent += `"Deskripsi","Nilai","Satuan"\n`;
-            csvContent += `"Sisa Kuota",${sisaKuotaEl.textContent},"L"\n`;
-            csvContent += `"Laju Aliran",${lajuAliranEl.textContent},"L/m"\n`;
-            csvContent += `"Total Penggunaan",${totalPenggunaanEl.textContent},"L"\n`;
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
+            const headers = ['Perangkat', 'Sisa Kuota (L)', 'Laju Aliran (L/m)', 'Total Penggunaan (L)'];
+            const data = [deviceName, sisaKuotaEl.textContent, lajuAliranEl.textContent, totalPenggunaanEl.textContent];
+            let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + data.join(",");
+            const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
-            link.setAttribute("href", url);
-            const timestamp = now.toISOString().slice(0, 10);
+            link.setAttribute("href", encodedUri);
+            const timestamp = new Date().toISOString().slice(0, 10);
             link.setAttribute("download", `laporan_air_${currentDevicePath.replace('/', '')}_${timestamp}.csv`);
             document.body.appendChild(link);
             link.click();
